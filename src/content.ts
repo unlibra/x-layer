@@ -4,7 +4,7 @@
 // Create or get the style element for injected CSS
 let styleElement: HTMLStyleElement | null = null
 
-function getOrCreateStyleElement(): HTMLStyleElement {
+function getOrCreateStyleElement (): HTMLStyleElement {
   if (!styleElement) {
     styleElement = document.createElement('style')
     styleElement.id = 'x-layer-injected-styles'
@@ -32,7 +32,7 @@ chrome.runtime.onMessage.addListener(
 )
 
 // Load and apply saved preset for current URL on page load
-async function loadPresetForCurrentUrl() {
+async function loadPresetForCurrentUrl () {
   const currentUrl = window.location.href
 
   // Get all presets from storage
