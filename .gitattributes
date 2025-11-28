@@ -6,5 +6,5 @@
 **/postcss.config.* linguist-vendored
 **/tailwind.config.* linguist-vendored
 **/vite.config.* linguist-vendored
-**/eslint*.cjs linguist-vendored
 **/eslint.config.mjs linguist-vendored
+**/eslint-local-rules.cjs linguist-vendored

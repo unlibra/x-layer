@@ -1,8 +1,12 @@
+import { createRequire } from 'module'
 import tseslint from '@typescript-eslint/eslint-plugin'
 import reactHooks from 'eslint-plugin-react-hooks'
 import simpleImportSort from 'eslint-plugin-simple-import-sort'
 import tailwindcss from 'eslint-plugin-tailwindcss'
 import neostandard from 'neostandard'
+
+const require = createRequire(import.meta.url)
+const localRules = require('./eslint-local-rules.cjs')
 
 export default [
   // Ignore build outputs and config files
@@ -27,7 +31,8 @@ export default [
       '@typescript-eslint': tseslint,
       'react-hooks': reactHooks,
       'simple-import-sort': simpleImportSort,
-      tailwindcss
+      tailwindcss,
+      local: { rules: localRules }
     },
     rules: {
       // React Hooks
@@ -47,6 +52,9 @@ export default [
         }
       ],
       '@typescript-eslint/no-import-type-side-effects': 'error',
+
+      // カスタムルール: インライン型アノテーションを禁止
+      'local/no-inline-type-imports': 'error',
 
       // JSX quotes (use single quotes to match neostandard)
       '@stylistic/jsx-quotes': ['error', 'prefer-single'],
