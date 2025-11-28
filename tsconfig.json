@@ -9,6 +9,7 @@
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
@@ -29,5 +30,5 @@
     /* Chrome extension types */
     "types": ["chrome"]
   },
-  "include": ["src"]
+  "include": ["src", "public"]
 }

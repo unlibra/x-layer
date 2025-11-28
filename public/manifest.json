@@ -16,20 +16,20 @@
     "<all_urls>"
   ],
   "side_panel": {
-    "default_path": "sidepanel.html"
+    "default_path": "src/sidepanel/index.html"
   },
   "action": {
     "default_title": "X-Layer を開く",
     "default_icon": "icons/icon-128.png"
   },
   "background": {
-    "service_worker": "background.js",
+    "service_worker": "src/background.ts",
     "type": "module"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": ["src/content.ts"],
       "run_at": "document_start"
     }
   ]
