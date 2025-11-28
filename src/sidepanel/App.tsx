@@ -214,55 +214,67 @@ function App() {
   }
 
   return (
-    <div className="container">
-      <div className="header">
-        <h1>X-Layer</h1>
-        <p>WEBサイトにカスタムスタイルを注入</p>
+    <div className="min-h-screen bg-slate-50 p-4 text-slate-800">
+      <div className="mb-6 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 p-5 text-white shadow-lg">
+        <h1 className="mb-1 text-2xl font-bold">X-Layer</h1>
+        <p className="text-sm text-indigo-100">
+          WEBサイトにカスタムスタイルを注入
+        </p>
       </div>
 
-      <div className="section">
-        <h2>CSS エディター</h2>
+      <div className="mb-6 rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <h2 className="mb-3 text-lg font-semibold text-slate-900">
+          CSS エディター
+        </h2>
         <textarea
-          className="editor"
+          className="min-h-[200px] w-full rounded-md border border-slate-300 bg-slate-50 p-3 font-mono text-sm leading-relaxed text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           value={css}
           onChange={(e) => setCss(e.target.value)}
           placeholder="/* CSSを入力してください */&#10;body {&#10;  background-color: #f0f0f0;&#10;}"
         />
-        <div className="button-group">
-          <button className="btn btn-primary" onClick={applyCSS}>
+        <div className="mt-4 flex gap-3">
+          <button
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            onClick={applyCSS}
+          >
             適用
           </button>
-          <button className="btn btn-secondary" onClick={clearCSS}>
+          <button
+            className="rounded-md bg-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
+            onClick={clearCSS}
+          >
             クリア
           </button>
         </div>
       </div>
 
-      <div className="section">
-        <h2>プリセットとして保存</h2>
+      <div className="mb-6 rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <h2 className="mb-3 text-lg font-semibold text-slate-900">
+          プリセットとして保存
+        </h2>
         <input
-          className="input"
+          className="mb-3 w-full rounded-md border border-slate-300 p-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           type="text"
           placeholder="プリセット名"
           value={newPresetName}
           onChange={(e) => setNewPresetName(e.target.value)}
         />
-        <div className="url-patterns">
-          <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
+        <div className="mt-3">
+          <p className="mb-2 text-xs text-slate-500">
             適用するURLパターン (* でワイルドカード)
           </p>
           {newPresetUrls.map((url, index) => (
-            <div key={index} className="url-pattern-item">
+            <div key={index} className="mb-2 flex gap-2">
               <input
-                className="input"
+                className="flex-1 rounded-md border border-slate-300 p-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 type="text"
-                placeholder="例: https://example.com/* または https://*.example.com/*"
+                placeholder="例: https://example.com/*"
                 value={url}
                 onChange={(e) => updateUrlPattern(index, e.target.value)}
               />
               {newPresetUrls.length > 1 && (
                 <button
-                  className="btn btn-danger btn-small"
+                  className="rounded-md bg-red-50 px-3 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-100"
                   onClick={() => removeUrlPattern(index)}
                 >
                   削除
@@ -271,69 +283,89 @@ function App() {
             </div>
           ))}
           <button
-            className="btn btn-secondary btn-small"
+            className="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-800"
             onClick={addUrlPattern}
           >
             + URLパターンを追加
           </button>
         </div>
-        <div className="button-group">
+        <div className="mt-4 flex gap-3">
           {editingPreset ? (
             <>
-              <button className="btn btn-primary" onClick={updatePreset}>
+              <button
+                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                onClick={updatePreset}
+              >
                 更新
               </button>
-              <button className="btn btn-secondary" onClick={cancelEdit}>
+              <button
+                className="rounded-md bg-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
+                onClick={cancelEdit}
+              >
                 キャンセル
               </button>
             </>
           ) : (
-            <button className="btn btn-primary" onClick={saveAsPreset}>
+            <button
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              onClick={saveAsPreset}
+            >
               保存
             </button>
           )}
         </div>
       </div>
 
-      <div className="section">
-        <h2>保存済みプリセット</h2>
+      <div className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <h2 className="mb-3 text-lg font-semibold text-slate-900">
+          保存済みプリセット
+        </h2>
         {presets.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">📝</div>
-            <div className="empty-state-text">
+          <div className="py-8 text-center">
+            <div className="mb-3 text-4xl opacity-30">📝</div>
+            <p className="text-sm text-slate-500">
               まだプリセットがありません
-            </div>
+            </p>
           </div>
         ) : (
-          <ul className="preset-list">
+          <ul className="space-y-3">
             {presets.map((preset) => (
-              <li key={preset.id} className="preset-item">
-                <div className="preset-header">
-                  <span className="preset-name">{preset.name}</span>
-                  <div className="preset-actions">
+              <li
+                key={preset.id}
+                className="group rounded-lg border border-slate-200 p-3 transition-all hover:border-indigo-300 hover:shadow-sm"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-medium text-slate-800">
+                    {preset.name}
+                  </span>
+                  <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <button
-                      className="btn btn-primary btn-small"
+                      className="rounded bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-100"
                       onClick={() => loadPreset(preset)}
                     >
                       読込
                     </button>
                     <button
-                      className="btn btn-secondary btn-small"
+                      className="rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200"
                       onClick={() => startEditPreset(preset)}
                     >
                       編集
                     </button>
                     <button
-                      className="btn btn-danger btn-small"
+                      className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
                       onClick={() => deletePreset(preset.id)}
                     >
                       削除
                     </button>
                   </div>
                 </div>
-                <div className="preset-urls">
-                  <span className="preset-urls-label">URL:</span>
-                  {preset.urlPatterns.join(', ')}
+                <div className="flex flex-wrap gap-1">
+                  <span className="text-xs font-medium text-slate-500">
+                    URL:
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {preset.urlPatterns.join(', ')}
+                  </span>
                 </div>
               </li>
             ))}
@@ -342,9 +374,8 @@ function App() {
       </div>
 
       {currentUrl && (
-        <div className="section">
-          <h2>現在のURL</h2>
-          <p style={{ fontSize: '12px', color: '#6b7280', wordBreak: 'break-all' }}>
+        <div className="mt-6 text-center">
+          <p className="truncate text-xs text-slate-400">
             {currentUrl}
           </p>
         </div>
