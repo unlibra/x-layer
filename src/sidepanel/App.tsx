@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
+import { Listbox, Switch } from '@headlessui/react'
 
 import type { Preset } from '../types'
 
 function App () {
-  const [css, setCss] = useState('')
   const [presets, setPresets] = useState<Preset[]>([])
   const [currentUrl, setCurrentUrl] = useState('')
-  const [editingPreset, setEditingPreset] = useState<Preset | null>(null)
-  const [newPresetName, setNewPresetName] = useState('')
-  const [newPresetUrls, setNewPresetUrls] = useState<string[]>([''])
+  const [matchingPresetIds, setMatchingPresetIds] = useState<string[]>([])
+  const [editingPresetId, setEditingPresetId] = useState<string | 'new'>('new')
+  const [editingCss, setEditingCss] = useState('')
+  const [editingName, setEditingName] = useState('')
+  const [editingUrls, setEditingUrls] = useState<string[]>([''])
+  const [editingEnabled, setEditingEnabled] = useState(true)
 
   // Load presets and current URL on mount, and setup listeners
   useEffect(() => {
@@ -39,34 +42,45 @@ function App () {
     }
   }, [])
 
-  // Auto-load preset for current URL
+  // Auto-load matching presets for current URL
   useEffect(() => {
-    if (!currentUrl) return
+    if (!currentUrl || presets.length === 0) return
 
-    const matchingPreset = presets.find((preset) =>
-      preset.urlPatterns.some((pattern) => {
-        try {
-          const regexPattern = pattern
-            .replace(/[.+?^${}()|[\\]/g, '\\$&')
-            .replace(/\*/g, '.*')
-          const regex = new RegExp(`^${regexPattern}$`)
-          return regex.test(currentUrl)
-        } catch {
-          return false
-        }
+    // Find all matching presets, sorted by specificity (most specific first)
+    const matchingPresets = presets
+      .filter((preset) =>
+        preset.urlPatterns.some((pattern) => {
+          try {
+            const regexPattern = pattern
+              .replace(/[.+?^${}()|[\\]/g, '\\$&')
+              .replace(/\*/g, '.*')
+            const regex = new RegExp(`^${regexPattern}$`)
+            return regex.test(currentUrl)
+          } catch {
+            return false
+          }
+        })
+      )
+      .sort((a, b) => {
+        // Sort by specificity: fewer wildcards = more specific
+        const aWildcards = a.urlPatterns[0]?.split('*').length || 0
+        const bWildcards = b.urlPatterns[0]?.split('*').length || 0
+        return aWildcards - bWildcards
       })
-    )
 
-    if (matchingPreset) {
-      setCss(matchingPreset.css)
-      setEditingPreset(matchingPreset)
-      setNewPresetName(matchingPreset.name)
-      setNewPresetUrls([...matchingPreset.urlPatterns])
+    if (matchingPresets.length > 0) {
+      const matchingIds = matchingPresets.map((p) => p.id)
+      setMatchingPresetIds(matchingIds)
+
+      // Apply combined CSS from all enabled matching presets
+      const enabledMatchingPresets = matchingPresets.filter((p) => p.enabled)
+      const combinedCss = enabledMatchingPresets.map((p) => p.css).join('\n\n')
+      chrome.runtime.sendMessage({
+        type: 'APPLY_CSS',
+        css: combinedCss,
+      })
     } else {
-      setCss('')
-      setEditingPreset(null)
-      setNewPresetName('')
-      setNewPresetUrls([''])
+      setMatchingPresetIds([])
     }
   }, [currentUrl, presets])
 
@@ -85,57 +99,104 @@ function App () {
     })
   }
 
-  // Apply CSS to current page
-  const applyCSS = () => {
+  // Toggle preset enabled state
+  const togglePresetEnabled = async (presetId: string) => {
+    const preset = presets.find((p) => p.id === presetId)
+    if (!preset) return
+
+    const updatedPreset = { ...preset, enabled: !preset.enabled }
+    const updatedPresets = presets.map((p) =>
+      p.id === presetId ? updatedPreset : p
+    )
+
+    await chrome.storage.local.set({ presets: updatedPresets })
+    setPresets(updatedPresets)
+
+    // Apply combined CSS from all enabled matching presets
+    const matchingPresets = updatedPresets.filter((p) => matchingPresetIds.includes(p.id))
+    const enabledMatchingPresets = matchingPresets.filter((p) => p.enabled)
+    const combinedCss = enabledMatchingPresets.map((p) => p.css).join('\n\n')
     chrome.runtime.sendMessage({
       type: 'APPLY_CSS',
-      css,
+      css: combinedCss,
     })
   }
 
   // Clear CSS from current page
   const clearCSS = () => {
-    setCss('')
     chrome.runtime.sendMessage({
       type: 'APPLY_CSS',
       css: '',
     })
   }
 
-  // Save current CSS as a new preset
-  const saveAsPreset = async () => {
-    if (!newPresetName.trim()) {
+  // Save or update preset
+  const savePreset = async () => {
+    if (!editingName.trim()) {
       alert('プリセット名を入力してください')
       return
     }
 
-    const filteredUrls = newPresetUrls.filter((url) => url.trim() !== '')
+    const filteredUrls = editingUrls.filter((url) => url.trim() !== '')
     if (filteredUrls.length === 0) {
       alert('少なくとも1つのURLパターンを入力してください')
       return
     }
 
-    const newPreset: Preset = {
-      id: Date.now().toString(),
-      name: newPresetName,
-      css,
-      urlPatterns: filteredUrls,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    }
+    if (editingPresetId === 'new') {
+      // Create new preset
+      const newPreset: Preset = {
+        id: Date.now().toString(),
+        name: editingName,
+        css: editingCss,
+        urlPatterns: filteredUrls,
+        enabled: editingEnabled,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }
 
-    const updatedPresets = [...presets, newPreset]
-    await chrome.storage.local.set({ presets: updatedPresets })
-    setPresets(updatedPresets)
-    setNewPresetName('')
-    setNewPresetUrls([''])
-    alert('プリセットを保存しました')
+      const updatedPresets = [...presets, newPreset]
+      await chrome.storage.local.set({ presets: updatedPresets })
+      setPresets(updatedPresets)
+      setEditingPresetId(newPreset.id)
+      alert('プリセットを保存しました')
+    } else {
+      // Update existing preset
+      const updatedPreset: Preset = {
+        ...presets.find((p) => p.id === editingPresetId)!,
+        name: editingName,
+        css: editingCss,
+        urlPatterns: filteredUrls,
+        enabled: editingEnabled,
+        updatedAt: Date.now(),
+      }
+
+      const updatedPresets = presets.map((p) =>
+        p.id === editingPresetId ? updatedPreset : p
+      )
+      await chrome.storage.local.set({ presets: updatedPresets })
+      setPresets(updatedPresets)
+      alert('プリセットを更新しました')
+    }
   }
 
-  // Load a preset
-  const loadPreset = (preset: Preset) => {
-    setCss(preset.css)
-    applyCSS()
+  // Select preset for editing
+  const selectPresetForEdit = (presetId: string | 'new') => {
+    setEditingPresetId(presetId)
+    if (presetId === 'new') {
+      setEditingCss('')
+      setEditingName('')
+      setEditingUrls([''])
+      setEditingEnabled(true)
+    } else {
+      const preset = presets.find((p) => p.id === presetId)
+      if (preset) {
+        setEditingCss(preset.css)
+        setEditingName(preset.name)
+        setEditingUrls([...preset.urlPatterns])
+        setEditingEnabled(preset.enabled)
+      }
+    }
   }
 
   // Delete a preset
@@ -147,133 +208,177 @@ function App () {
     const updatedPresets = presets.filter((p) => p.id !== presetId)
     await chrome.storage.local.set({ presets: updatedPresets })
     setPresets(updatedPresets)
-  }
 
-  // Edit a preset
-  const startEditPreset = (preset: Preset) => {
-    setEditingPreset(preset)
-    setNewPresetName(preset.name)
-    setNewPresetUrls([...preset.urlPatterns])
-  }
-
-  // Update a preset
-  const updatePreset = async () => {
-    if (!editingPreset) return
-
-    if (!newPresetName.trim()) {
-      alert('プリセット名を入力してください')
-      return
+    // Switch to new if deleted preset was being edited
+    if (editingPresetId === presetId) {
+      selectPresetForEdit('new')
     }
-
-    const filteredUrls = newPresetUrls.filter((url) => url.trim() !== '')
-    if (filteredUrls.length === 0) {
-      alert('少なくとも1つのURLパターンを入力してください')
-      return
-    }
-
-    const updatedPreset: Preset = {
-      ...editingPreset,
-      name: newPresetName,
-      urlPatterns: filteredUrls,
-      updatedAt: Date.now(),
-    }
-
-    const updatedPresets = presets.map((p) =>
-      p.id === editingPreset.id ? updatedPreset : p
-    )
-    await chrome.storage.local.set({ presets: updatedPresets })
-    setPresets(updatedPresets)
-    setEditingPreset(null)
-    setNewPresetName('')
-    setNewPresetUrls([''])
-    alert('プリセットを更新しました')
-  }
-
-  // Cancel editing
-  const cancelEdit = () => {
-    setEditingPreset(null)
-    setNewPresetName('')
-    setNewPresetUrls([''])
   }
 
   // Add URL pattern field
   const addUrlPattern = () => {
-    setNewPresetUrls([...newPresetUrls, ''])
+    setEditingUrls([...editingUrls, ''])
   }
 
   // Update URL pattern
   const updateUrlPattern = (index: number, value: string) => {
-    const updated = [...newPresetUrls]
+    const updated = [...editingUrls]
     updated[index] = value
-    setNewPresetUrls(updated)
+    setEditingUrls(updated)
   }
 
   // Remove URL pattern
   const removeUrlPattern = (index: number) => {
-    const updated = newPresetUrls.filter((_, i) => i !== index)
-    setNewPresetUrls(updated.length > 0 ? updated : [''])
+    const updated = editingUrls.filter((_, i) => i !== index)
+    setEditingUrls(updated.length > 0 ? updated : [''])
   }
+
+  // Get matching presets
+  const matchingPresets = presets.filter((p) => matchingPresetIds.includes(p.id))
 
   return (
     <div className='min-h-screen bg-slate-50 p-4 text-slate-800'>
-      <div className='mb-6 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 p-5 text-white shadow-lg'>
-        <h1 className='mb-1 text-2xl font-bold'>X-Layer</h1>
-        <p className='text-sm text-indigo-100'>
-          WEBサイトにカスタムスタイルを注入
-        </p>
+      {/* Matching Presets Display */}
+      <div className='mb-6'>
+        <h2 className='mb-3 text-sm font-medium text-slate-600'>
+          このページのプリセット
+        </h2>
+        {matchingPresets.length > 0
+          ? (
+            <div className='flex flex-wrap gap-2'>
+              {matchingPresets.map((preset) => (
+                <button
+                  key={preset.id}
+                  className={`rounded-full px-4 py-2 text-sm font-medium shadow-md transition-colors ${
+                    preset.enabled
+                      ? 'bg-primary text-white hover:brightness-110'
+                      : 'bg-white text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50'
+                  }`}
+                  onClick={() => togglePresetEnabled(preset.id)}
+                >
+                  {preset.name}
+                </button>
+              ))}
+            </div>
+            )
+          : (
+            <p className='text-sm text-slate-500'>
+              このページに適用されているプリセットはありません
+            </p>
+            )}
       </div>
 
+      {/* Preset Editor */}
       <div className='mb-6 rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200'>
-        <h2 className='mb-3 text-lg font-semibold text-slate-900'>
-          CSS エディター
-        </h2>
-        <textarea
-          className='min-h-[200px] w-full rounded-md border border-slate-300 bg-slate-50 p-3 font-mono text-sm leading-relaxed text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500'
-          value={css}
-          onChange={(e) => setCss(e.target.value)}
-          placeholder='/* CSSを入力してください */&#10;body {&#10;  background-color: #f0f0f0;&#10;}'
-        />
-        <div className='mt-4 flex gap-3'>
-          <button
-            className='rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
-            onClick={applyCSS}
-          >
-            適用
-          </button>
-          <button
-            className='rounded-md bg-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2'
-            onClick={clearCSS}
-          >
-            クリア
-          </button>
+        <div className='mb-4 flex items-center justify-between'>
+          <h2 className='text-lg font-semibold text-slate-900'>
+            プリセット編集
+          </h2>
+          {editingPresetId !== 'new' && (
+            <button
+              className='flex h-8 w-8 items-center justify-center rounded-md text-red-600 transition-colors hover:bg-red-50'
+              onClick={() => deletePreset(editingPresetId)}
+              title='削除'
+            >
+              <svg className='h-5 w-5' viewBox='0 0 20 20' fill='currentColor'>
+                <path fillRule='evenodd' d='M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z' clipRule='evenodd' />
+              </svg>
+            </button>
+          )}
         </div>
-      </div>
 
-      <div className='mb-6 rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200'>
-        <h2 className='mb-3 text-lg font-semibold text-slate-900'>
-          プリセットとして保存
-        </h2>
+        {/* Preset Selector Dropdown */}
+        <Listbox value={editingPresetId} onChange={selectPresetForEdit}>
+          <div className='relative mb-4'>
+            <Listbox.Button className='relative w-full cursor-pointer rounded-md border border-slate-300 bg-white py-2.5 pl-3 pr-10 text-left text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'>
+              <span className='block truncate'>
+                {editingPresetId === 'new'
+                  ? '新規プリセット'
+                  : presets.find((p) => p.id === editingPresetId)?.name || '選択してください'}
+              </span>
+              <span className='pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2'>
+                <svg className='h-5 w-5 text-slate-400' viewBox='0 0 20 20' fill='currentColor'>
+                  <path fillRule='evenodd' d='M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z' clipRule='evenodd' />
+                </svg>
+              </span>
+            </Listbox.Button>
+            <Listbox.Options className='absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 shadow-lg ring-1 ring-black/5 focus:outline-none'>
+              <Listbox.Option
+                key='new'
+                value='new'
+                className={({ active }) =>
+                  `relative cursor-pointer select-none py-2 pl-3 pr-9 ${
+                    active ? 'bg-primary/10 text-primary' : 'text-slate-900'
+                  }`}
+              >
+                {({ selected }) => (
+                  <>
+                    <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
+                      新規プリセット
+                    </span>
+                    {selected && (
+                      <span className='absolute inset-y-0 right-0 flex items-center pr-3 text-primary'>
+                        <svg className='h-5 w-5' viewBox='0 0 20 20' fill='currentColor'>
+                          <path fillRule='evenodd' d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z' clipRule='evenodd' />
+                        </svg>
+                      </span>
+                    )}
+                  </>
+                )}
+              </Listbox.Option>
+              {presets.map((preset) => (
+                <Listbox.Option
+                  key={preset.id}
+                  value={preset.id}
+                  className={({ active }) =>
+                    `relative cursor-pointer select-none py-2 pl-3 pr-9 ${
+                      active ? 'bg-primary/10 text-primary' : 'text-slate-900'
+                    }`}
+                >
+                  {({ selected }) => (
+                    <>
+                      <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
+                        {preset.name}
+                      </span>
+                      {selected && (
+                        <span className='absolute inset-y-0 right-0 flex items-center pr-3 text-primary'>
+                          <svg className='h-5 w-5' viewBox='0 0 20 20' fill='currentColor'>
+                            <path fillRule='evenodd' d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z' clipRule='evenodd' />
+                          </svg>
+                        </span>
+                      )}
+                    </>
+                  )}
+                </Listbox.Option>
+              ))}
+            </Listbox.Options>
+          </div>
+        </Listbox>
+
+        {/* Preset Name */}
         <input
-          className='mb-3 w-full rounded-md border border-slate-300 p-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500'
+          className='mb-3 w-full rounded-md border border-slate-300 p-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
           type='text'
           placeholder='プリセット名'
-          value={newPresetName}
-          onChange={(e) => setNewPresetName(e.target.value)}
+          value={editingName}
+          onChange={(e) => setEditingName(e.target.value)}
         />
-        <div className='mt-3'>
+
+        {/* URL Patterns */}
+        <div className='mb-4'>
           <p className='mb-2 text-xs text-slate-500'>
             適用するURLパターン (* でワイルドカード)
           </p>
-          {newPresetUrls.map((url, index) => (
+          {editingUrls.map((url, index) => (
             <div key={index} className='mb-2 flex gap-2'>
               <input
-                className='flex-1 rounded-md border border-slate-300 p-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500'
+                className='flex-1 rounded-md border border-slate-300 p-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
                 type='text'
                 placeholder='例: https://example.com/*'
                 value={url}
                 onChange={(e) => updateUrlPattern(index, e.target.value)}
               />
-              {newPresetUrls.length > 1 && (
+              {editingUrls.length > 1 && (
                 <button
                   className='rounded-md bg-red-50 px-3 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-100'
                   onClick={() => removeUrlPattern(index)}
@@ -284,107 +389,56 @@ function App () {
             </div>
           ))}
           <button
-            className='mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-800'
+            className='mt-2 text-xs font-medium text-primary hover:brightness-110'
             onClick={addUrlPattern}
           >
             + URLパターンを追加
           </button>
         </div>
-        <div className='mt-4 flex gap-3'>
-          {editingPreset
-            ? (
-              <>
-                <button
-                  className='rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
-                  onClick={updatePreset}
-                >
-                  更新
-                </button>
-                <button
-                  className='rounded-md bg-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2'
-                  onClick={cancelEdit}
-                >
-                  キャンセル
-                </button>
-              </>
-              )
-            : (
-              <button
-                className='rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
-                onClick={saveAsPreset}
-              >
-                保存
-              </button>
-              )}
+
+        {/* CSS Editor */}
+        <div className='mb-4'>
+          <label className='mb-2 block text-sm font-medium text-slate-700'>
+            CSS
+          </label>
+          <textarea
+            className='min-h-[200px] w-full rounded-md border border-slate-300 bg-slate-50 p-3 font-mono text-sm leading-relaxed text-slate-700 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
+            value={editingCss}
+            onChange={(e) => setEditingCss(e.target.value)}
+            placeholder='/* CSSを入力してください */&#10;body {&#10;  background-color: #f0f0f0;&#10;}'
+          />
+        </div>
+
+        {/* Enabled Toggle */}
+        <Switch.Group>
+          <div className='mb-4 flex items-center justify-between'>
+            <Switch.Label className='text-sm text-slate-700'>有効</Switch.Label>
+            <Switch
+              checked={editingEnabled}
+              onChange={setEditingEnabled}
+              className={`${
+                editingEnabled ? 'bg-primary' : 'bg-slate-300'
+              } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
+            >
+              <span
+                className={`${
+                  editingEnabled ? 'translate-x-6' : 'translate-x-1'
+                } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+              />
+            </Switch>
+          </div>
+        </Switch.Group>
+
+        {/* Actions */}
+        <div className='flex gap-3'>
+          <button
+            className='rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
+            onClick={savePreset}
+          >
+            {editingPresetId === 'new' ? '保存' : '更新'}
+          </button>
         </div>
       </div>
-
-      <div className='rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200'>
-        <h2 className='mb-3 text-lg font-semibold text-slate-900'>
-          保存済みプリセット
-        </h2>
-        {presets.length === 0
-          ? (
-            <div className='py-8 text-center'>
-              <div className='mb-3 text-4xl opacity-30'>📝</div>
-              <p className='text-sm text-slate-500'>
-                まだプリセットがありません
-              </p>
-            </div>
-            )
-          : (
-            <ul className='space-y-3'>
-              {presets.map((preset) => (
-                <li
-                  key={preset.id}
-                  className='group rounded-lg border border-slate-200 p-3 transition-all hover:border-indigo-300 hover:shadow-sm'
-                >
-                  <div className='mb-2 flex items-center justify-between'>
-                    <span className='font-medium text-slate-800'>
-                      {preset.name}
-                    </span>
-                    <div className='flex gap-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100'>
-                      <button
-                        className='rounded bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-100'
-                        onClick={() => loadPreset(preset)}
-                      >
-                        読込
-                      </button>
-                      <button
-                        className='rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200'
-                        onClick={() => startEditPreset(preset)}
-                      >
-                        編集
-                      </button>
-                      <button
-                        className='rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100'
-                        onClick={() => deletePreset(preset.id)}
-                      >
-                        削除
-                      </button>
-                    </div>
-                  </div>
-                  <div className='flex flex-wrap gap-1'>
-                    <span className='text-xs font-medium text-slate-500'>
-                      URL:
-                    </span>
-                    <span className='text-xs text-slate-500'>
-                      {preset.urlPatterns.join(', ')}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            )}
-      </div>
-
-      {currentUrl && (
-        <div className='mt-6 text-center'>
-          <p className='truncate text-xs text-slate-400'>
-            {currentUrl}
-          </p>
-        </div>
-      )}
     </div>
   )
 }

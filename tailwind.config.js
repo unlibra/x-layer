@@ -16,7 +16,8 @@ export default {
           light: '#333842',
           DEFAULT: '#282c34',
           deep: '#21252b'
-        }
+        },
+        primary: '#1a7ba0'
       }
     }
   },

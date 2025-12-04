@@ -5,6 +5,7 @@ export interface Preset {
   name: string
   css: string
   urlPatterns: string[]
+  enabled: boolean
   createdAt: number
   updatedAt: number
 }
