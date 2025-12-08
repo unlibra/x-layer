@@ -1,7 +1,60 @@
 import { useEffect, useState } from 'react'
 import { Listbox } from '@headlessui/react'
+import { validate } from 'csstree-validator'
+import { z } from 'zod'
 
 import type { Preset } from '../types'
+
+// Validate URL pattern with wildcard support
+const isValidUrlPattern = (pattern: string): boolean => {
+  if (!pattern.trim()) return false
+
+  // Replace wildcards with placeholder for URL validation
+  const testUrl = pattern.replace(/\*/g, 'WILDCARD')
+
+  try {
+    const url = new URL(testUrl)
+    // Must have http or https protocol
+    if (!['http:', 'https:'].includes(url.protocol)) return false
+    // Must have a hostname
+    if (!url.hostname || url.hostname === 'WILDCARD') return false
+    return true
+  } catch {
+    return false
+  }
+}
+
+const presetSchema = z.object({
+  name: z.string().min(1, 'プリセット名を入力してください'),
+  urls: z.array(z.string()).refine(
+    (urls) => urls.some((url) => url.trim() !== ''),
+    'URLを入力してください'
+  ),
+})
+
+// Validate individual URL patterns, returns array of error indices
+const validateUrlPatterns = (urls: string[]): number[] => {
+  const invalidIndices: number[] = []
+  urls.forEach((url, index) => {
+    if (url.trim() !== '' && !isValidUrlPattern(url)) {
+      invalidIndices.push(index)
+    }
+  })
+  return invalidIndices
+}
+
+interface CssError {
+  line: number
+  column: number
+  message: string
+}
+
+interface FormErrors {
+  name?: string
+  urls?: string
+  urlIndices?: number[]
+  css?: string[]
+}
 
 function App () {
   const [presets, setPresets] = useState<Preset[]>([])
@@ -12,6 +65,68 @@ function App () {
   const [editingName, setEditingName] = useState('')
   const [editingUrls, setEditingUrls] = useState<string[]>([''])
   const [editingEnabled, setEditingEnabled] = useState(true)
+  const [cssErrors, setCssErrors] = useState<CssError[]>([])
+  const [touched, setTouched] = useState<{ name?: boolean; urls?: boolean }>({})
+
+  // Validate CSS with debounce
+  useEffect(() => {
+    if (!editingCss.trim()) {
+      setCssErrors([])
+      return
+    }
+
+    const timer = setTimeout(() => {
+      try {
+        const errors = validate(editingCss)
+        if (Array.isArray(errors)) {
+          setCssErrors(errors.map((e) => ({
+            line: e.line ?? 0,
+            column: e.column ?? 0,
+            message: e.message ?? 'Unknown error',
+          })))
+        } else {
+          setCssErrors([])
+        }
+      } catch (err) {
+        console.error('CSS validation error:', err)
+        setCssErrors([])
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [editingCss])
+
+  // Form validation with zod
+  const zodResult = presetSchema.safeParse({
+    name: editingName,
+    urls: editingUrls,
+  })
+
+  // Validate individual URL patterns
+  const invalidUrlIndices = validateUrlPatterns(editingUrls)
+
+  // Build form errors
+  const formErrors: FormErrors = {}
+  if (!zodResult.success) {
+    for (const issue of zodResult.error.issues) {
+      const path = issue.path[0] as string
+      if (path === 'name' && touched.name) {
+        formErrors.name = issue.message
+      }
+      if (path === 'urls' && touched.urls) {
+        formErrors.urls = issue.message
+      }
+    }
+  }
+  if (invalidUrlIndices.length > 0) {
+    formErrors.urlIndices = invalidUrlIndices
+  }
+  if (cssErrors.length > 0) {
+    formErrors.css = cssErrors.map((e) => `${e.line}:${e.column} - ${e.message}`)
+  }
+
+  // Check if form is valid (for save button)
+  const isFormValid = zodResult.success && invalidUrlIndices.length === 0 && cssErrors.length === 0
 
   // Load presets and current URL on mount, and setup listeners
   useEffect(() => {
@@ -132,16 +247,21 @@ function App () {
 
   // Save or update preset
   const savePreset = async () => {
-    if (!editingName.trim()) {
-      alert('プリセット名を入力してください')
+    // Mark all fields as touched to show errors
+    setTouched({ name: true, urls: true })
+
+    // Check validity with zod
+    const result = presetSchema.safeParse({
+      name: editingName,
+      urls: editingUrls,
+    })
+    const urlErrors = validateUrlPatterns(editingUrls)
+
+    if (!result.success || urlErrors.length > 0 || cssErrors.length > 0) {
       return
     }
 
     const filteredUrls = editingUrls.filter((url) => url.trim() !== '')
-    if (filteredUrls.length === 0) {
-      alert('少なくとも1つのURLパターンを入力してください')
-      return
-    }
 
     if (editingPresetId === 'new') {
       // Create new preset
@@ -183,6 +303,7 @@ function App () {
   // Select preset for editing
   const selectPresetForEdit = (presetId: string | 'new') => {
     setEditingPresetId(presetId)
+    setTouched({})
     if (presetId === 'new') {
       setEditingCss('')
       setEditingName('')
@@ -372,12 +493,20 @@ function App () {
             プリセット名
           </label>
           <input
-            className='w-full rounded-md border border-slate-300 p-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
+            className={`w-full rounded-md border p-2.5 text-sm focus:outline-none focus:ring-1 ${
+              touched.name && formErrors.name
+                ? 'border-red-400 focus:border-red-400 focus:ring-red-400'
+                : 'border-slate-300 focus:border-primary focus:ring-primary'
+            }`}
             type='text'
             placeholder='例: ダークモード'
             value={editingName}
             onChange={(e) => setEditingName(e.target.value)}
+            onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
           />
+          {touched.name && formErrors.name && (
+            <p className='mt-1 text-xs text-red-600'>{formErrors.name}</p>
+          )}
         </div>
 
         {/* URL Patterns */}
@@ -386,29 +515,45 @@ function App () {
             適用するURL
           </label>
           <div className='space-y-2'>
-            {editingUrls.map((url, index) => (
-              <div key={index} className='flex items-center gap-2'>
-                <input
-                  className='flex-1 rounded-md border border-slate-300 p-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
-                  type='text'
-                  placeholder='例: https://example.com/*'
-                  value={url}
-                  onChange={(e) => updateUrlPattern(index, e.target.value)}
-                />
-                <button
-                  type='button'
-                  onClick={() => removeUrlPattern(index)}
-                  disabled={editingUrls.length === 1}
-                  className='flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-red-500 transition-colors hover:bg-red-50 disabled:opacity-30 disabled:hover:bg-transparent'
-                >
-                  <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
-                    <circle cx='12' cy='12' r='10' />
-                    <path d='M8 12h8' />
-                  </svg>
-                </button>
-              </div>
-            ))}
+            {editingUrls.map((url, index) => {
+              const hasError = formErrors.urlIndices?.includes(index)
+              return (
+                <div key={index}>
+                  <div className='flex items-center gap-2'>
+                    <input
+                      className={`flex-1 rounded-md border p-2.5 text-sm focus:outline-none focus:ring-1 ${
+                        hasError || (touched.urls && formErrors.urls)
+                          ? 'border-red-400 focus:border-red-400 focus:ring-red-400'
+                          : 'border-slate-300 focus:border-primary focus:ring-primary'
+                      }`}
+                      type='text'
+                      placeholder='例: https://example.com/*'
+                      value={url}
+                      onChange={(e) => updateUrlPattern(index, e.target.value)}
+                      onBlur={() => setTouched((prev) => ({ ...prev, urls: true }))}
+                    />
+                    <button
+                      type='button'
+                      onClick={() => removeUrlPattern(index)}
+                      disabled={editingUrls.length === 1}
+                      className='flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-red-500 transition-colors hover:bg-red-50 disabled:opacity-30 disabled:hover:bg-transparent'
+                    >
+                      <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+                        <circle cx='12' cy='12' r='10' />
+                        <path d='M8 12h8' />
+                      </svg>
+                    </button>
+                  </div>
+                  {hasError && (
+                    <p className='mt-1 text-xs text-red-600'>無効なURLパターンです</p>
+                  )}
+                </div>
+              )
+            })}
           </div>
+          {touched.urls && formErrors.urls && (
+            <p className='mt-1 text-xs text-red-600'>{formErrors.urls}</p>
+          )}
           <button
             type='button'
             onClick={addUrlPattern}
@@ -426,17 +571,44 @@ function App () {
           <label className='mb-2 block text-sm font-medium text-slate-700'>
             CSS
           </label>
-          <textarea
-            className='min-h-[200px] w-full rounded-md border border-slate-300 bg-slate-50 p-3 font-mono text-sm leading-relaxed text-slate-700 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
-            value={editingCss}
-            onChange={(e) => setEditingCss(e.target.value)}
-            placeholder='/* CSSを入力してください */&#10;body {&#10;  background-color: #f0f0f0;&#10;}'
-          />
+          <div
+            className={`flex overflow-hidden rounded-md border ${
+              formErrors.css
+                ? 'border-red-400 focus-within:border-red-400 focus-within:ring-1 focus-within:ring-red-400'
+                : 'border-slate-300 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary'
+            }`}
+          >
+            <div className='select-none bg-slate-100 py-3 pl-2 pr-1 font-mono text-sm leading-relaxed text-slate-400'>
+              {(editingCss || ' ').split('\n').map((_, i) => (
+                <div key={i} className='text-right'>{i + 1}</div>
+              ))}
+            </div>
+            <textarea
+              className='min-h-[200px] flex-1 resize-none bg-slate-50 p-3 pl-2 font-mono text-sm leading-relaxed text-slate-700 focus:outline-none'
+              value={editingCss}
+              onChange={(e) => setEditingCss(e.target.value)}
+              placeholder='/* CSSを入力してください */'
+              spellCheck={false}
+            />
+          </div>
+          {formErrors.css && (
+            <div className='mt-2 space-y-1'>
+              {formErrors.css.map((error, index) => (
+                <p key={index} className='text-xs text-red-600'>
+                  {error}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Actions */}
         <button
-          className='rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
+          className={`rounded-md px-4 py-2 text-sm font-medium text-white transition-colors ${
+            !isFormValid
+              ? 'pointer-events-none bg-slate-400'
+              : 'bg-primary hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
+          }`}
           onClick={savePreset}
         >
           {editingPresetId === 'new' ? '保存' : '更新'}

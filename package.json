@@ -12,8 +12,10 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
+    "csstree-validator": "^4.0.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.23",
