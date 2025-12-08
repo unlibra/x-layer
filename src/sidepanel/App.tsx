@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { z } from 'zod'
 
 import type { Preset } from '../types'
+import { combineCss, findMatchingPresets } from '../utils/urlMatcher'
 import { useToast } from './Toast'
 
 // Validate URL pattern with wildcard support
@@ -161,38 +162,18 @@ function App () {
   useEffect(() => {
     if (!currentUrl || presets.length === 0) return
 
-    // Find all matching presets, sorted by specificity (most specific first)
-    const matchingPresets = presets
-      .filter((preset) =>
-        preset.urlPatterns.some((pattern) => {
-          try {
-            const regexPattern = pattern
-              .replace(/[.+?^${}()|[\\]/g, '\\$&')
-              .replace(/\*/g, '.*')
-            const regex = new RegExp(`^${regexPattern}$`)
-            return regex.test(currentUrl)
-          } catch {
-            return false
-          }
-        })
-      )
-      .sort((a, b) => {
-        // Sort by specificity: fewer wildcards = more specific
-        const aWildcards = a.urlPatterns[0]?.split('*').length || 0
-        const bWildcards = b.urlPatterns[0]?.split('*').length || 0
-        return aWildcards - bWildcards
-      })
+    // Find all matching presets (both enabled and disabled for display)
+    const allMatchingPresets = findMatchingPresets(currentUrl, presets, false)
 
-    if (matchingPresets.length > 0) {
-      const matchingIds = matchingPresets.map((p) => p.id)
+    if (allMatchingPresets.length > 0) {
+      const matchingIds = allMatchingPresets.map((p) => p.id)
       setMatchingPresetIds(matchingIds)
 
-      // Apply combined CSS from all enabled matching presets
-      const enabledMatchingPresets = matchingPresets.filter((p) => p.enabled)
-      const combinedCss = enabledMatchingPresets.map((p) => p.css).join('\n\n')
+      // Apply combined CSS from all enabled matching presets only
+      const enabledMatchingPresets = allMatchingPresets.filter((p) => p.enabled)
       chrome.runtime.sendMessage({
         type: 'APPLY_CSS',
-        css: combinedCss,
+        css: combineCss(enabledMatchingPresets),
       })
     } else {
       setMatchingPresetIds([])
@@ -233,10 +214,9 @@ function App () {
     // Apply combined CSS from all enabled matching presets
     const matchingPresets = updatedPresets.filter((p) => matchingPresetIds.includes(p.id))
     const enabledMatchingPresets = matchingPresets.filter((p) => p.enabled)
-    const combinedCss = enabledMatchingPresets.map((p) => p.css).join('\n\n')
     chrome.runtime.sendMessage({
       type: 'APPLY_CSS',
-      css: combinedCss,
+      css: combineCss(enabledMatchingPresets),
     })
   }
 

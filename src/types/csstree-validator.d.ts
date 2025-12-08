@@ -5,5 +5,5 @@ declare module 'csstree-validator' {
     message: string
   }
 
-  export function validate(css: string): ValidationError[]
+  export function validate (css: string): ValidationError[]
 }

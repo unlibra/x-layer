@@ -1,6 +1,9 @@
 // Content script for injecting CSS into web pages
 // This script runs on all web pages and listens for style injection commands
 
+import type { Preset } from './types'
+import { combineCss, findMatchingPresets } from './utils/urlMatcher'
+
 // Create or get the style element for injected CSS
 let styleElement: HTMLStyleElement | null = null
 
@@ -31,39 +34,20 @@ chrome.runtime.onMessage.addListener(
   }
 )
 
-// Load and apply saved preset for current URL on page load
+// Load and apply saved presets for current URL on page load
 async function loadPresetForCurrentUrl () {
   const currentUrl = window.location.href
 
   // Get all presets from storage
   const result = await chrome.storage.local.get('presets')
-  const presets: Array<{
-    id: string
-    name: string
-    css: string
-    urlPatterns: string[]
-  }> = result.presets || []
+  const presets: Preset[] = result.presets || []
 
-  // Find matching preset
-  for (const preset of presets) {
-    for (const pattern of preset.urlPatterns) {
-      try {
-        // Convert glob pattern to regex
-        const regexPattern = pattern
-          .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-          .replace(/\*/g, '.*')
-        const regex = new RegExp(`^${regexPattern}$`)
+  // Find all matching enabled presets, sorted by specificity
+  const matchingPresets = findMatchingPresets(currentUrl, presets, true)
 
-        if (regex.test(currentUrl)) {
-          // Apply matching preset
-          const style = getOrCreateStyleElement()
-          style.textContent = preset.css
-          return
-        }
-      } catch (error) {
-        console.error('Invalid URL pattern:', pattern, error)
-      }
-    }
+  if (matchingPresets.length > 0) {
+    const style = getOrCreateStyleElement()
+    style.textContent = combineCss(matchingPresets)
   }
 }
 
