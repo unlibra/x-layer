@@ -37,10 +37,13 @@ chrome.runtime.onMessage.addListener(
           })
         }
       })
-    } else if (message.type === 'GET_CURRENT_URL') {
-      // Get current tab URL for preset matching
+    } else if (message.type === 'GET_CURRENT_TAB') {
+      // Get current tab URL and title for preset matching
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        sendResponse({ url: tabs[0]?.url || '' })
+        sendResponse({
+          url: tabs[0]?.url || '',
+          title: tabs[0]?.title || '',
+        })
       })
       return true // Keep message channel open for async response
     }

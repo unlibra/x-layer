@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
 import { Listbox } from '@headlessui/react'
 import { validate } from 'csstree-validator'
+import { useEffect, useState } from 'react'
 import { z } from 'zod'
 
 import type { Preset } from '../types'
+import { useToast } from './Toast'
 
 // Validate URL pattern with wildcard support
 const isValidUrlPattern = (pattern: string): boolean => {
@@ -57,8 +58,10 @@ interface FormErrors {
 }
 
 function App () {
+  const toast = useToast()
   const [presets, setPresets] = useState<Preset[]>([])
   const [currentUrl, setCurrentUrl] = useState('')
+  const [currentTitle, setCurrentTitle] = useState('')
   const [matchingPresetIds, setMatchingPresetIds] = useState<string[]>([])
   const [editingPresetId, setEditingPresetId] = useState<string | 'new'>('new')
   const [editingCss, setEditingCss] = useState('')
@@ -125,13 +128,10 @@ function App () {
     formErrors.css = cssErrors.map((e) => `${e.line}:${e.column} - ${e.message}`)
   }
 
-  // Check if form is valid (for save button)
-  const isFormValid = zodResult.success && invalidUrlIndices.length === 0 && cssErrors.length === 0
-
   // Load presets and current URL on mount, and setup listeners
   useEffect(() => {
     loadPresets()
-    getCurrentUrl()
+    getCurrentTab()
 
     // Listen for tab updates to refresh current URL
     const handleTabUpdate = (
@@ -140,12 +140,12 @@ function App () {
       tab: chrome.tabs.Tab
     ) => {
       if (changeInfo.status === 'complete' && tab.active) {
-        getCurrentUrl()
+        getCurrentTab()
       }
     }
 
     const handleTabActivated = (_activeInfo: chrome.tabs.TabActiveInfo) => {
-      getCurrentUrl()
+      getCurrentTab()
     }
 
     chrome.tabs.onUpdated.addListener(handleTabUpdate)
@@ -206,10 +206,13 @@ function App () {
   }
 
   // Get current tab URL
-  const getCurrentUrl = () => {
-    chrome.runtime.sendMessage({ type: 'GET_CURRENT_URL' }, (response) => {
+  const getCurrentTab = () => {
+    chrome.runtime.sendMessage({ type: 'GET_CURRENT_TAB' }, (response) => {
       if (response?.url) {
         setCurrentUrl(response.url)
+      }
+      if (response?.title) {
+        setCurrentTitle(response.title)
       }
     })
   }
@@ -234,14 +237,6 @@ function App () {
     chrome.runtime.sendMessage({
       type: 'APPLY_CSS',
       css: combinedCss,
-    })
-  }
-
-  // Clear CSS from current page
-  const clearCSS = () => {
-    chrome.runtime.sendMessage({
-      type: 'APPLY_CSS',
-      css: '',
     })
   }
 
@@ -279,7 +274,7 @@ function App () {
       await chrome.storage.local.set({ presets: updatedPresets })
       setPresets(updatedPresets)
       setEditingPresetId(newPreset.id)
-      alert('プリセットを保存しました')
+      toast.success('プリセットを作成しました')
     } else {
       // Update existing preset
       const updatedPreset: Preset = {
@@ -296,7 +291,7 @@ function App () {
       )
       await chrome.storage.local.set({ presets: updatedPresets })
       setPresets(updatedPresets)
-      alert('プリセットを更新しました')
+      toast.success('プリセットを保存しました')
     }
   }
 
@@ -320,11 +315,41 @@ function App () {
     }
   }
 
+  // Create new preset with current URL
+  const createPresetForCurrentPage = () => {
+    setEditingPresetId('new')
+    setEditingCss('')
+    setEditingName(currentTitle)
+    setEditingUrls([currentUrl])
+    setEditingEnabled(true)
+    setTouched({})
+  }
+
+  // Cancel editing
+  const cancelEdit = () => {
+    if (editingPresetId === 'new') {
+      selectPresetForEdit('new')
+    } else {
+      // Reset to original preset values
+      selectPresetForEdit(editingPresetId)
+    }
+  }
+
+  // Duplicate a preset (as unsaved new preset)
+  const duplicatePreset = () => {
+    if (editingPresetId === 'new') return
+
+    setEditingPresetId('new')
+    setEditingName(`${editingName} のコピー`)
+    setEditingEnabled(false)
+    // Keep current editingCss and editingUrls
+    setTouched({})
+  }
+
   // Delete a preset
   const deletePreset = async (presetId: string) => {
-    if (!confirm('このプリセットを削除しますか?')) {
-      return
-    }
+    const deletedPreset = presets.find((p) => p.id === presetId)
+    if (!deletedPreset) return
 
     const updatedPresets = presets.filter((p) => p.id !== presetId)
     await chrome.storage.local.set({ presets: updatedPresets })
@@ -334,6 +359,14 @@ function App () {
     if (editingPresetId === presetId) {
       selectPresetForEdit('new')
     }
+
+    // Show toast with undo
+    toast.withUndo('プリセットを削除しました', async () => {
+      const restoredPresets = [...updatedPresets, deletedPreset]
+      await chrome.storage.local.set({ presets: restoredPresets })
+      setPresets(restoredPresets)
+      selectPresetForEdit(deletedPreset.id)
+    })
   }
 
   // Add URL pattern field
@@ -361,21 +394,34 @@ function App () {
     <div className='min-h-screen bg-slate-50 p-4 text-slate-800'>
       {/* Matching Presets Display */}
       <div className='mb-6'>
-        <h2 className='mb-3 text-sm font-medium text-slate-600'>
-          このページのプリセット
-        </h2>
+        <div className='mb-3 flex items-center justify-between'>
+          <h2 className='text-base font-semibold text-slate-800'>
+            このページのプリセット
+          </h2>
+          <button
+            type='button'
+            onClick={createPresetForCurrentPage}
+            className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+            title='このページ用のプリセットを作成'
+          >
+            <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+              <path d='M12 5v14M5 12h14' />
+            </svg>
+          </button>
+        </div>
         {matchingPresets.length > 0
           ? (
             <div className='flex flex-wrap gap-2'>
               {matchingPresets.map((preset) => (
                 <button
                   key={preset.id}
-                  className={`rounded-full px-4 py-2 text-sm font-medium shadow-md transition-colors ${
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                     preset.enabled
                       ? 'bg-primary text-white hover:brightness-110'
-                      : 'bg-white text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50'
+                      : 'bg-slate-200 text-slate-600 hover:bg-slate-300 hover:text-slate-700'
                   }`}
                   onClick={() => togglePresetEnabled(preset.id)}
+                  title={preset.enabled ? '無効にする' : '有効にする'}
                 >
                   {preset.name}
                 </button>
@@ -389,29 +435,49 @@ function App () {
             )}
       </div>
 
+      {/* Divider */}
+      <hr className='mb-6 border-slate-200' />
+
       {/* Preset Editor */}
-      <div className='mb-6 rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200'>
+      <div className='mb-6'>
         <div className='mb-4 flex items-center justify-between'>
-          <h2 className='text-lg font-semibold text-slate-900'>
+          <h2 className='text-base font-semibold text-slate-800'>
             プリセット編集
           </h2>
-          <button
-            type='button'
-            onClick={() => setEditingEnabled(!editingEnabled)}
-            className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100'
-            title={editingEnabled ? '無効にする' : '有効にする'}
-          >
-            {editingEnabled ? (
-              <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5'>
-                <path d='M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z' />
-                <path d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
-              </svg>
-            ) : (
-              <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5'>
-                <path d='M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88' />
-              </svg>
+          <div className='flex gap-1'>
+            {editingPresetId !== 'new' && (
+              <button
+                type='button'
+                onClick={duplicatePreset}
+                className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+                title='複製'
+              >
+                <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5'>
+                  <rect x='9' y='9' width='13' height='13' rx='2' />
+                  <path d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1' />
+                </svg>
+              </button>
             )}
-          </button>
+            <button
+              type='button'
+              onClick={() => setEditingEnabled(!editingEnabled)}
+              className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+              title={editingEnabled ? '無効にする' : '有効にする'}
+            >
+              {editingEnabled
+                ? (
+                  <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5'>
+                    <path d='M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z' />
+                    <path d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
+                  </svg>
+                  )
+                : (
+                  <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5'>
+                    <path d='M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88' />
+                  </svg>
+                  )}
+            </button>
+          </div>
         </div>
 
         {/* Preset Selector Dropdown */}
@@ -421,55 +487,31 @@ function App () {
           </label>
           <Listbox value={editingPresetId} onChange={selectPresetForEdit}>
             <div className='relative'>
-            <Listbox.Button className='relative w-full cursor-pointer rounded-md border border-slate-300 bg-white py-2.5 pl-3 pr-10 text-left text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'>
-              <span className='block truncate'>
-                {editingPresetId === 'new'
-                  ? '新規プリセット'
-                  : presets.find((p) => p.id === editingPresetId)?.name || '選択してください'}
-              </span>
-              <span className='pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2'>
-                <svg className='h-5 w-5 text-slate-400' viewBox='0 0 20 20' fill='currentColor'>
-                  <path fillRule='evenodd' d='M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z' clipRule='evenodd' />
-                </svg>
-              </span>
-            </Listbox.Button>
-            <Listbox.Options className='absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 shadow-lg ring-1 ring-black/5 focus:outline-none'>
-              <Listbox.Option
-                key='new'
-                value='new'
-                className={({ active }) =>
+              <Listbox.Button className='relative w-full cursor-pointer rounded-md border border-slate-300 bg-white py-2.5 pl-3 pr-10 text-left text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'>
+                <span className='block truncate'>
+                  {editingPresetId === 'new'
+                    ? '新規プリセット'
+                    : presets.find((p) => p.id === editingPresetId)?.name || '選択してください'}
+                </span>
+                <span className='pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2'>
+                  <svg className='h-5 w-5 text-slate-400' viewBox='0 0 20 20' fill='currentColor'>
+                    <path fillRule='evenodd' d='M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z' clipRule='evenodd' />
+                  </svg>
+                </span>
+              </Listbox.Button>
+              <Listbox.Options className='absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 shadow-lg ring-1 ring-black/5 focus:outline-none'>
+                <Listbox.Option
+                  key='new'
+                  value='new'
+                  className={({ active }) =>
                   `relative cursor-pointer select-none py-2 pl-3 pr-9 ${
                     active ? 'bg-primary/10 text-primary' : 'text-slate-900'
                   }`}
-              >
-                {({ selected }) => (
-                  <>
-                    <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
-                      新規プリセット
-                    </span>
-                    {selected && (
-                      <span className='absolute inset-y-0 right-0 flex items-center pr-3 text-primary'>
-                        <svg className='h-5 w-5' viewBox='0 0 20 20' fill='currentColor'>
-                          <path fillRule='evenodd' d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z' clipRule='evenodd' />
-                        </svg>
-                      </span>
-                    )}
-                  </>
-                )}
-              </Listbox.Option>
-              {presets.map((preset) => (
-                <Listbox.Option
-                  key={preset.id}
-                  value={preset.id}
-                  className={({ active }) =>
-                    `relative cursor-pointer select-none py-2 pl-3 pr-9 ${
-                      active ? 'bg-primary/10 text-primary' : 'text-slate-900'
-                    }`}
                 >
                   {({ selected }) => (
                     <>
                       <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
-                        {preset.name}
+                        新規プリセット
                       </span>
                       {selected && (
                         <span className='absolute inset-y-0 right-0 flex items-center pr-3 text-primary'>
@@ -481,8 +523,32 @@ function App () {
                     </>
                   )}
                 </Listbox.Option>
-              ))}
-            </Listbox.Options>
+                {presets.map((preset) => (
+                  <Listbox.Option
+                    key={preset.id}
+                    value={preset.id}
+                    className={({ active }) =>
+                    `relative cursor-pointer select-none py-2 pl-3 pr-9 ${
+                      active ? 'bg-primary/10 text-primary' : 'text-slate-900'
+                    }`}
+                  >
+                    {({ selected }) => (
+                      <>
+                        <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
+                          {preset.name}
+                        </span>
+                        {selected && (
+                          <span className='absolute inset-y-0 right-0 flex items-center pr-3 text-primary'>
+                            <svg className='h-5 w-5' viewBox='0 0 20 20' fill='currentColor'>
+                              <path fillRule='evenodd' d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z' clipRule='evenodd' />
+                            </svg>
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </Listbox.Option>
+                ))}
+              </Listbox.Options>
             </div>
           </Listbox>
         </div>
@@ -536,7 +602,7 @@ function App () {
                       type='button'
                       onClick={() => removeUrlPattern(index)}
                       disabled={editingUrls.length === 1}
-                      className='flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-red-500 transition-colors hover:bg-red-50 disabled:opacity-30 disabled:hover:bg-transparent'
+                      className='flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-red-500 transition-colors hover:bg-red-50 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-30 disabled:hover:bg-transparent'
                     >
                       <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
                         <circle cx='12' cy='12' r='10' />
@@ -557,7 +623,7 @@ function App () {
           <button
             type='button'
             onClick={addUrlPattern}
-            className='mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100 py-2 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700'
+            className='mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-200 py-2 text-slate-600 transition-colors hover:bg-slate-300 hover:text-slate-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
           >
             <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
               <path d='M12 5v14M5 12h14' />
@@ -572,24 +638,26 @@ function App () {
             CSS
           </label>
           <div
-            className={`flex overflow-hidden rounded-md border ${
+            className={`max-h-96 overflow-y-auto rounded-md border ${
               formErrors.css
                 ? 'border-red-400 focus-within:border-red-400 focus-within:ring-1 focus-within:ring-red-400'
                 : 'border-slate-300 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary'
             }`}
           >
-            <div className='select-none bg-slate-50 py-3 pl-2 pr-1 font-mono text-sm leading-relaxed text-slate-400'>
-              {(editingCss || ' ').split('\n').map((_, i) => (
-                <div key={i} className='text-right'>{i + 1}</div>
-              ))}
+            <div className='flex min-h-[200px]'>
+              <div className='sticky left-0 select-none bg-slate-50 py-3 pl-2 pr-1 font-mono text-sm leading-relaxed text-slate-400'>
+                {(editingCss || ' ').split('\n').map((_, i) => (
+                  <div key={i} className='text-right'>{i + 1}</div>
+                ))}
+              </div>
+              <textarea
+                className='min-h-[200px] flex-1 resize-none bg-white p-3 pl-2 font-mono text-sm leading-relaxed text-slate-700 focus:outline-none'
+                value={editingCss}
+                onChange={(e) => setEditingCss(e.target.value)}
+                placeholder={'/* CSSを入力してください */\nbody {\n  background: #f0f0f0;\n}'}
+                spellCheck={false}
+              />
             </div>
-            <textarea
-              className='min-h-[200px] flex-1 resize-none bg-white p-3 pl-2 font-mono text-sm leading-relaxed text-slate-700 focus:outline-none'
-              value={editingCss}
-              onChange={(e) => setEditingCss(e.target.value)}
-              placeholder={'/* CSSを入力してください */\nbody {\n  background: #f0f0f0;\n}'}
-              spellCheck={false}
-            />
           </div>
           {formErrors.css && (
             <div className='mt-2 space-y-1'>
@@ -603,21 +671,25 @@ function App () {
         </div>
 
         {/* Actions */}
-        <button
-          className={`rounded-md px-4 py-2 text-sm font-medium text-white transition-colors ${
-            !isFormValid
-              ? 'pointer-events-none bg-slate-400'
-              : 'bg-primary hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
-          }`}
-          onClick={savePreset}
-        >
-          {editingPresetId === 'new' ? '保存' : '更新'}
-        </button>
+        <div className='flex gap-3'>
+          <button
+            className='flex-1 rounded-md bg-primary py-2 text-sm font-medium text-white transition-colors hover:brightness-110 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+            onClick={savePreset}
+          >
+            {editingPresetId === 'new' ? '作成' : '保存'}
+          </button>
+          <button
+            className='flex-1 rounded-md bg-slate-200 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+            onClick={cancelEdit}
+          >
+            キャンセル
+          </button>
+        </div>
 
         {editingPresetId !== 'new' && (
-          <div className='mt-4 border-t border-slate-200 pt-4'>
+          <div className='mt-12 text-center'>
             <button
-              className='text-sm text-red-600 hover:text-red-700'
+              className='rounded text-sm text-red-600 hover:text-red-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
               onClick={() => deletePreset(editingPresetId)}
             >
               このプリセットを削除
