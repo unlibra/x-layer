@@ -1,5 +1,17 @@
 import { Listbox } from '@headlessui/react'
+import {
+  CheckIcon,
+  ChevronUpDownIcon,
+  CodeBracketIcon,
+  DocumentDuplicateIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  MinusCircleIcon,
+  PlusIcon,
+} from '@heroicons/react/24/outline'
 import { validate } from 'csstree-validator'
+import * as cssParser from 'prettier/plugins/postcss'
+import * as prettier from 'prettier/standalone'
 import { useEffect, useState } from 'react'
 import { z } from 'zod'
 
@@ -370,6 +382,23 @@ function App () {
   // Get matching presets
   const matchingPresets = presets.filter((p) => matchingPresetIds.includes(p.id))
 
+  // Format CSS with prettier
+  const formatCss = async () => {
+    if (!editingCss.trim()) return
+
+    try {
+      const formatted = await prettier.format(editingCss, {
+        parser: 'css',
+        plugins: [cssParser],
+        tabWidth: 2,
+      })
+      setEditingCss(formatted.trimStart())
+    } catch (err) {
+      console.error('CSS format error:', err)
+      toast.error('CSSの整形に失敗しました')
+    }
+  }
+
   return (
     <div className='min-h-screen bg-slate-50 p-4 text-slate-800'>
       {/* Matching Presets Display */}
@@ -381,12 +410,10 @@ function App () {
           <button
             type='button'
             onClick={createPresetForCurrentPage}
-            className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+            className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
             title='このページ用のプリセットを作成'
           >
-            <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
-              <path d='M12 5v14M5 12h14' />
-            </svg>
+            <PlusIcon className='size-5' />
           </button>
         </div>
         {matchingPresets.length > 0
@@ -429,33 +456,21 @@ function App () {
               <button
                 type='button'
                 onClick={duplicatePreset}
-                className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+                className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
                 title='複製'
               >
-                <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5'>
-                  <rect x='9' y='9' width='13' height='13' rx='2' />
-                  <path d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1' />
-                </svg>
+                <DocumentDuplicateIcon className='size-5' />
               </button>
             )}
             <button
               type='button'
               onClick={() => setEditingEnabled(!editingEnabled)}
-              className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+              className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
               title={editingEnabled ? '無効にする' : '有効にする'}
             >
               {editingEnabled
-                ? (
-                  <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5'>
-                    <path d='M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z' />
-                    <path d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
-                  </svg>
-                  )
-                : (
-                  <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5'>
-                    <path d='M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88' />
-                  </svg>
-                  )}
+                ? <EyeIcon className='size-5' />
+                : <EyeSlashIcon className='size-5' />}
             </button>
           </div>
         </div>
@@ -474,9 +489,7 @@ function App () {
                     : presets.find((p) => p.id === editingPresetId)?.name || '選択してください'}
                 </span>
                 <span className='pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2'>
-                  <svg className='h-5 w-5 text-slate-400' viewBox='0 0 20 20' fill='currentColor'>
-                    <path fillRule='evenodd' d='M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z' clipRule='evenodd' />
-                  </svg>
+                  <ChevronUpDownIcon className='size-5 text-slate-400' />
                 </span>
               </Listbox.Button>
               <Listbox.Options className='absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 shadow-lg ring-1 ring-black/5 focus:outline-none'>
@@ -495,9 +508,7 @@ function App () {
                       </span>
                       {selected && (
                         <span className='absolute inset-y-0 right-0 flex items-center pr-3 text-primary'>
-                          <svg className='h-5 w-5' viewBox='0 0 20 20' fill='currentColor'>
-                            <path fillRule='evenodd' d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z' clipRule='evenodd' />
-                          </svg>
+                          <CheckIcon className='size-5' />
                         </span>
                       )}
                     </>
@@ -519,9 +530,7 @@ function App () {
                         </span>
                         {selected && (
                           <span className='absolute inset-y-0 right-0 flex items-center pr-3 text-primary'>
-                            <svg className='h-5 w-5' viewBox='0 0 20 20' fill='currentColor'>
-                              <path fillRule='evenodd' d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z' clipRule='evenodd' />
-                            </svg>
+                            <CheckIcon className='size-5' />
                           </span>
                         )}
                       </>
@@ -584,10 +593,7 @@ function App () {
                       disabled={editingUrls.length === 1}
                       className='flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-red-500 transition-colors hover:bg-red-50 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-30 disabled:hover:bg-transparent'
                     >
-                      <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
-                        <circle cx='12' cy='12' r='10' />
-                        <path d='M8 12h8' />
-                      </svg>
+                      <MinusCircleIcon className='size-5' />
                     </button>
                   </div>
                   {hasError && (
@@ -605,18 +611,26 @@ function App () {
             onClick={addUrlPattern}
             className='mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-200 py-2 text-slate-600 transition-colors hover:bg-slate-300 hover:text-slate-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
           >
-            <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
-              <path d='M12 5v14M5 12h14' />
-            </svg>
+            <PlusIcon className='size-5' />
             <span className='text-sm font-medium'>URLパターンを追加</span>
           </button>
         </div>
 
         {/* CSS Editor */}
         <div className='mb-4'>
-          <label className='mb-2 block text-sm font-medium text-slate-700'>
-            CSS
-          </label>
+          <div className='mb-2 flex items-center justify-between'>
+            <label className='text-sm font-medium text-slate-700'>
+              CSS
+            </label>
+            <button
+              type='button'
+              onClick={formatCss}
+              className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+              title='CSSを整形'
+            >
+              <CodeBracketIcon className='size-5' />
+            </button>
+          </div>
           <div
             className={`max-h-96 overflow-y-auto rounded-md border ${
               formErrors.css

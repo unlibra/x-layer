@@ -8,9 +8,43 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
   }
 })
 
+// Sample presets to install on first run
+const samplePresets = [
+  {
+    id: 'sample-hide-images',
+    name: '画像を非表示',
+    css: 'img {\n  display: none;\n}\n',
+    urlPatterns: ['https://*/*'],
+    enabled: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  },
+  {
+    id: 'sample-font-change',
+    name: 'フォント変更',
+    css: `* {
+  font-family: "Noto Sans", sans-serif;
+}
+`,
+    urlPatterns: ['https://*/*'],
+    enabled: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  },
+]
+
 // Listen for extension installation
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   console.log('X-Layer extension installed')
+
+  // Only install sample presets on fresh install (not updates)
+  if (details.reason === 'install') {
+    const result = await chrome.storage.local.get('presets')
+    if (!result.presets || result.presets.length === 0) {
+      await chrome.storage.local.set({ presets: samplePresets })
+      console.log('Sample presets installed')
+    }
+  }
 })
 
 // Message handler for communication between sidepanel and content scripts
