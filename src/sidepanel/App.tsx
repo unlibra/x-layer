@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Listbox, Switch } from '@headlessui/react'
+import { Listbox } from '@headlessui/react'
 
 import type { Preset } from '../types'
 
@@ -274,22 +274,32 @@ function App () {
           <h2 className='text-lg font-semibold text-slate-900'>
             プリセット編集
           </h2>
-          {editingPresetId !== 'new' && (
-            <button
-              className='flex h-8 w-8 items-center justify-center rounded-md text-red-600 transition-colors hover:bg-red-50'
-              onClick={() => deletePreset(editingPresetId)}
-              title='削除'
-            >
-              <svg className='h-5 w-5' viewBox='0 0 20 20' fill='currentColor'>
-                <path fillRule='evenodd' d='M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z' clipRule='evenodd' />
+          <button
+            type='button'
+            onClick={() => setEditingEnabled(!editingEnabled)}
+            className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100'
+            title={editingEnabled ? '無効にする' : '有効にする'}
+          >
+            {editingEnabled ? (
+              <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5'>
+                <path d='M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z' />
+                <path d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
               </svg>
-            </button>
-          )}
+            ) : (
+              <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5'>
+                <path d='M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88' />
+              </svg>
+            )}
+          </button>
         </div>
 
         {/* Preset Selector Dropdown */}
-        <Listbox value={editingPresetId} onChange={selectPresetForEdit}>
-          <div className='relative mb-4'>
+        <div className='mb-4'>
+          <label className='mb-2 block text-sm font-medium text-slate-700'>
+            プリセット選択
+          </label>
+          <Listbox value={editingPresetId} onChange={selectPresetForEdit}>
+            <div className='relative'>
             <Listbox.Button className='relative w-full cursor-pointer rounded-md border border-slate-300 bg-white py-2.5 pl-3 pr-10 text-left text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'>
               <span className='block truncate'>
                 {editingPresetId === 'new'
@@ -352,47 +362,62 @@ function App () {
                 </Listbox.Option>
               ))}
             </Listbox.Options>
-          </div>
-        </Listbox>
+            </div>
+          </Listbox>
+        </div>
 
         {/* Preset Name */}
-        <input
-          className='mb-3 w-full rounded-md border border-slate-300 p-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
-          type='text'
-          placeholder='プリセット名'
-          value={editingName}
-          onChange={(e) => setEditingName(e.target.value)}
-        />
+        <div className='mb-4'>
+          <label className='mb-2 block text-sm font-medium text-slate-700'>
+            プリセット名
+          </label>
+          <input
+            className='w-full rounded-md border border-slate-300 p-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
+            type='text'
+            placeholder='例: ダークモード'
+            value={editingName}
+            onChange={(e) => setEditingName(e.target.value)}
+          />
+        </div>
 
         {/* URL Patterns */}
         <div className='mb-4'>
-          <p className='mb-2 text-xs text-slate-500'>
-            適用するURLパターン (* でワイルドカード)
-          </p>
-          {editingUrls.map((url, index) => (
-            <div key={index} className='mb-2 flex gap-2'>
-              <input
-                className='flex-1 rounded-md border border-slate-300 p-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
-                type='text'
-                placeholder='例: https://example.com/*'
-                value={url}
-                onChange={(e) => updateUrlPattern(index, e.target.value)}
-              />
-              {editingUrls.length > 1 && (
+          <label className='mb-2 block text-sm font-medium text-slate-700'>
+            適用するURL
+          </label>
+          <div className='space-y-2'>
+            {editingUrls.map((url, index) => (
+              <div key={index} className='flex items-center gap-2'>
+                <input
+                  className='flex-1 rounded-md border border-slate-300 p-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'
+                  type='text'
+                  placeholder='例: https://example.com/*'
+                  value={url}
+                  onChange={(e) => updateUrlPattern(index, e.target.value)}
+                />
                 <button
-                  className='rounded-md bg-red-50 px-3 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-100'
+                  type='button'
                   onClick={() => removeUrlPattern(index)}
+                  disabled={editingUrls.length === 1}
+                  className='flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-red-500 transition-colors hover:bg-red-50 disabled:opacity-30 disabled:hover:bg-transparent'
                 >
-                  削除
+                  <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+                    <circle cx='12' cy='12' r='10' />
+                    <path d='M8 12h8' />
+                  </svg>
                 </button>
-              )}
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
           <button
-            className='mt-2 text-xs font-medium text-primary hover:brightness-110'
+            type='button'
             onClick={addUrlPattern}
+            className='mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100 py-2 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700'
           >
-            + URLパターンを追加
+            <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+              <path d='M12 5v14M5 12h14' />
+            </svg>
+            <span className='text-sm font-medium'>URLパターンを追加</span>
           </button>
         </div>
 
@@ -409,35 +434,24 @@ function App () {
           />
         </div>
 
-        {/* Enabled Toggle */}
-        <Switch.Group>
-          <div className='mb-4 flex items-center justify-between'>
-            <Switch.Label className='text-sm text-slate-700'>有効</Switch.Label>
-            <Switch
-              checked={editingEnabled}
-              onChange={setEditingEnabled}
-              className={`${
-                editingEnabled ? 'bg-primary' : 'bg-slate-300'
-              } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
-            >
-              <span
-                className={`${
-                  editingEnabled ? 'translate-x-6' : 'translate-x-1'
-                } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
-              />
-            </Switch>
-          </div>
-        </Switch.Group>
-
         {/* Actions */}
-        <div className='flex gap-3'>
-          <button
-            className='rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
-            onClick={savePreset}
-          >
-            {editingPresetId === 'new' ? '保存' : '更新'}
-          </button>
-        </div>
+        <button
+          className='rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
+          onClick={savePreset}
+        >
+          {editingPresetId === 'new' ? '保存' : '更新'}
+        </button>
+
+        {editingPresetId !== 'new' && (
+          <div className='mt-4 border-t border-slate-200 pt-4'>
+            <button
+              className='text-sm text-red-600 hover:text-red-700'
+              onClick={() => deletePreset(editingPresetId)}
+            >
+              このプリセットを削除
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
