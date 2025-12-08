@@ -1,7 +1,7 @@
 {
-  "name": "x-layer",
+  "name": "restyle",
   "version": "1.0.0",
-  "description": "Chrome extension for injecting custom CSS styles into websites with live preview",
+  "description": "Restyle - Customize any website with your own CSS",
   "type": "module",
   "scripts": {
     "dev": "vite",

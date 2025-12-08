@@ -20,7 +20,7 @@ let styleElement: HTMLStyleElement | null = null
 function getOrCreateStyleElement (): HTMLStyleElement {
   if (!styleElement) {
     styleElement = document.createElement('style')
-    styleElement.id = 'x-layer-injected-styles'
+    styleElement.id = 'restyle-injected-styles'
     document.head.appendChild(styleElement)
   }
   return styleElement

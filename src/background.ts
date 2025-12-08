@@ -1,4 +1,4 @@
-// Background service worker for X-Layer extension
+// Background service worker for Restyle extension
 // Handles extension icon clicks and communication between sidepanel and content scripts
 
 // Open side panel when extension icon is clicked
@@ -35,7 +35,7 @@ const samplePresets = [
 
 // Listen for extension installation
 chrome.runtime.onInstalled.addListener(async (details) => {
-  console.log('X-Layer extension installed')
+  console.log('Restyle extension installed')
 
   // Only install sample presets on fresh install (not updates)
   if (details.reason === 'install') {

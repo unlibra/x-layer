@@ -1,4 +1,4 @@
-// Type definitions for X-Layer
+// Type definitions for Restyle
 
 export interface Preset {
   id: string
