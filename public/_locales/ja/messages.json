@@ -1,0 +1,112 @@
+{
+  "extName": {
+    "message": "Restyle"
+  },
+  "extDescription": {
+    "message": "好きなCSSでウェブサイトをカスタマイズ"
+  },
+  "openPanel": {
+    "message": "Restyle を開く"
+  },
+  "presetsForThisPage": {
+    "message": "このページのプリセット"
+  },
+  "createPresetForPage": {
+    "message": "このページ用のプリセットを作成"
+  },
+  "noPresetsApplied": {
+    "message": "このページに適用されているプリセットはありません"
+  },
+  "presetEditor": {
+    "message": "プリセット編集"
+  },
+  "duplicate": {
+    "message": "複製"
+  },
+  "enable": {
+    "message": "有効にする"
+  },
+  "disable": {
+    "message": "無効にする"
+  },
+  "selectPreset": {
+    "message": "プリセット選択"
+  },
+  "newPreset": {
+    "message": "新規プリセット"
+  },
+  "selectPlaceholder": {
+    "message": "選択してください"
+  },
+  "presetName": {
+    "message": "プリセット名"
+  },
+  "presetNamePlaceholder": {
+    "message": "例: ダークモード"
+  },
+  "urlPatterns": {
+    "message": "適用するURL"
+  },
+  "urlPlaceholder": {
+    "message": "例: https://example.com/*"
+  },
+  "invalidUrlPattern": {
+    "message": "無効なURLパターンです"
+  },
+  "addUrlPattern": {
+    "message": "URLパターンを追加"
+  },
+  "css": {
+    "message": "CSS"
+  },
+  "formatCss": {
+    "message": "CSSを整形"
+  },
+  "cssPlaceholder": {
+    "message": "/* CSSを入力してください */\nbody {\n  background: #f0f0f0;\n}"
+  },
+  "create": {
+    "message": "作成"
+  },
+  "save": {
+    "message": "保存"
+  },
+  "cancel": {
+    "message": "キャンセル"
+  },
+  "deletePreset": {
+    "message": "このプリセットを削除"
+  },
+  "presetCreated": {
+    "message": "プリセットを作成しました"
+  },
+  "presetSaved": {
+    "message": "プリセットを保存しました"
+  },
+  "presetDeleted": {
+    "message": "プリセットを削除しました"
+  },
+  "formatFailed": {
+    "message": "CSSの整形に失敗しました"
+  },
+  "copyOf": {
+    "message": "$NAME$ のコピー",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "validationPresetName": {
+    "message": "プリセット名を入力してください"
+  },
+  "validationUrl": {
+    "message": "URLを入力してください"
+  },
+  "sampleHideImages": {
+    "message": "画像を非表示"
+  },
+  "sampleFontChange": {
+    "message": "フォント変更"
+  }
+}

@@ -1,0 +1,173 @@
+import { Transition, TransitionChild } from '@headlessui/react'
+import { CheckCircleIcon, ExclamationCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, XMarkIcon } from '@heroicons/react/24/solid'
+import type { ReactNode } from 'react'
+import { createContext, Fragment, useCallback, useContext, useState } from 'react'
+
+export type ToastType = 'success' | 'error' | 'warning' | 'info'
+
+export interface Toast {
+  id: string
+  type: ToastType
+  message: string
+  duration?: number
+  onUndo?: () => void
+}
+
+interface ToastContextType {
+  showToast: (message: string, type?: ToastType, duration?: number, onUndo?: () => void) => void
+  success: (message: string, duration?: number) => void
+  error: (message: string, duration?: number) => void
+  warning: (message: string, duration?: number) => void
+  info: (message: string, duration?: number) => void
+  withUndo: (message: string, onUndo: () => void, duration?: number) => void
+}
+
+const ToastContext = createContext<ToastContextType | undefined>(undefined)
+
+export function useToast (): ToastContextType {
+  const context = useContext(ToastContext)
+  if (!context) {
+    throw new Error('useToast must be used within ToastProvider')
+  }
+  return context
+}
+
+export function ToastProvider ({ children }: { children: ReactNode }) {
+  const [toasts, setToasts] = useState<Toast[]>([])
+
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id))
+  }, [])
+
+  const showToast = useCallback((message: string, type: ToastType = 'info', duration?: number, onUndo?: () => void) => {
+    const id = `${Date.now()}-${Math.random()}`
+    const toast: Toast = { id, message, type, duration, onUndo }
+
+    setToasts((prev) => [...prev, toast])
+
+    if (duration !== undefined && duration > 0) {
+      setTimeout(() => {
+        removeToast(id)
+      }, duration)
+    }
+  }, [removeToast])
+
+  const success = useCallback((message: string, duration: number = 3000) => {
+    showToast(message, 'success', duration)
+  }, [showToast])
+
+  const error = useCallback((message: string, duration?: number) => {
+    showToast(message, 'error', duration)
+  }, [showToast])
+
+  const warning = useCallback((message: string, duration: number = 3000) => {
+    showToast(message, 'warning', duration)
+  }, [showToast])
+
+  const info = useCallback((message: string, duration: number = 3000) => {
+    showToast(message, 'info', duration)
+  }, [showToast])
+
+  const withUndo = useCallback((message: string, onUndo: () => void, duration: number = 5000) => {
+    showToast(message, 'info', duration, onUndo)
+  }, [showToast])
+
+  return (
+    <ToastContext.Provider value={{ showToast, success, error, warning, info, withUndo }}>
+      {children}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+    </ToastContext.Provider>
+  )
+}
+
+function ToastContainer ({ toasts, onRemove }: { toasts: Toast[], onRemove: (id: string) => void }) {
+  return (
+    <div className='pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-end gap-2 p-4'>
+      {toasts.map((toast) => (
+        <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
+      ))}
+    </div>
+  )
+}
+
+function ToastItem ({ toast, onRemove }: { toast: Toast, onRemove: (id: string) => void }) {
+  const [show, setShow] = useState(true)
+
+  const handleClose = useCallback(() => {
+    setShow(false)
+    setTimeout(() => {
+      onRemove(toast.id)
+    }, 300)
+  }, [onRemove, toast.id])
+
+  const handleUndo = useCallback(() => {
+    if (toast.onUndo) {
+      toast.onUndo()
+    }
+    handleClose()
+  }, [toast, handleClose])
+
+  const getIcon = () => {
+    switch (toast.type) {
+      case 'success':
+        return <CheckCircleIcon className='size-6 text-white' />
+      case 'error':
+        return <ExclamationCircleIcon className='size-6 text-white' />
+      case 'warning':
+        return <ExclamationTriangleIcon className='size-6 text-white' />
+      case 'info':
+        return <InformationCircleIcon className='size-6 text-white' />
+    }
+  }
+
+  const getBgColor = useCallback(() => {
+    switch (toast.type) {
+      case 'success':
+        return 'bg-green-500'
+      case 'error':
+        return 'bg-red-500'
+      case 'warning':
+        return 'bg-yellow-500'
+      case 'info':
+        return 'bg-blue-500'
+    }
+  }, [toast.type])
+
+  return (
+    <Transition show={show} as={Fragment}>
+      <div className='pointer-events-auto w-full max-w-sm'>
+        <TransitionChild
+          as={Fragment}
+          enter='transform ease-out duration-300 transition'
+          enterFrom='translate-y-full opacity-0'
+          enterTo='translate-y-0 opacity-100'
+          leave='transition ease-in duration-200'
+          leaveFrom='translate-y-0 opacity-100'
+          leaveTo='translate-y-full opacity-0'
+        >
+          <div className={`flex items-center gap-2 rounded-lg px-4 py-3 shadow-lg ${getBgColor()}`}>
+            {getIcon()}
+            <div className='flex-1 text-sm font-medium text-white'>
+              {toast.message}
+            </div>
+            {toast.onUndo && (
+              <button
+                onClick={handleUndo}
+                className='shrink-0 rounded-md bg-white/20 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-white/30'
+              >
+                UNDO
+              </button>
+            )}
+            <button
+              onClick={handleClose}
+              className='shrink-0 rounded-lg p-1 transition-colors hover:bg-white/20'
+              aria-label='閉じる'
+            >
+              <XMarkIcon className='size-5 text-white' />
+            </button>
+          </div>
+        </TransitionChild>
+      </div>
+    </Transition>
+  )
+}

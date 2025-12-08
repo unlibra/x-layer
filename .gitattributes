@@ -1,0 +1,10 @@
+# Exclude configuration files from GitHub language statistics
+**/*.config.js linguist-vendored
+**/*.config.ts linguist-vendored
+**/*.config.mjs linguist-vendored
+**/*.config.cjs linguist-vendored
+**/postcss.config.* linguist-vendored
+**/tailwind.config.* linguist-vendored
+**/vite.config.* linguist-vendored
+**/eslint.config.mjs linguist-vendored
+**/eslint-local-rules.cjs linguist-vendored

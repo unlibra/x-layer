@@ -1,0 +1,112 @@
+{
+  "extName": {
+    "message": "Restyle"
+  },
+  "extDescription": {
+    "message": "Customize any website with your own CSS"
+  },
+  "openPanel": {
+    "message": "Open Restyle"
+  },
+  "presetsForThisPage": {
+    "message": "Presets for this page"
+  },
+  "createPresetForPage": {
+    "message": "Create preset for this page"
+  },
+  "noPresetsApplied": {
+    "message": "No presets applied to this page"
+  },
+  "presetEditor": {
+    "message": "Edit Preset"
+  },
+  "duplicate": {
+    "message": "Duplicate"
+  },
+  "enable": {
+    "message": "Enable"
+  },
+  "disable": {
+    "message": "Disable"
+  },
+  "selectPreset": {
+    "message": "Select Preset"
+  },
+  "newPreset": {
+    "message": "New Preset"
+  },
+  "selectPlaceholder": {
+    "message": "Select a preset"
+  },
+  "presetName": {
+    "message": "Preset Name"
+  },
+  "presetNamePlaceholder": {
+    "message": "e.g. Dark Mode"
+  },
+  "urlPatterns": {
+    "message": "URL Patterns"
+  },
+  "urlPlaceholder": {
+    "message": "e.g. https://example.com/*"
+  },
+  "invalidUrlPattern": {
+    "message": "Invalid URL pattern"
+  },
+  "addUrlPattern": {
+    "message": "Add URL pattern"
+  },
+  "css": {
+    "message": "CSS"
+  },
+  "formatCss": {
+    "message": "Format CSS"
+  },
+  "cssPlaceholder": {
+    "message": "/* Enter your CSS here */\nbody {\n  background: #f0f0f0;\n}"
+  },
+  "create": {
+    "message": "Create"
+  },
+  "save": {
+    "message": "Save"
+  },
+  "cancel": {
+    "message": "Cancel"
+  },
+  "deletePreset": {
+    "message": "Delete this preset"
+  },
+  "presetCreated": {
+    "message": "Preset created"
+  },
+  "presetSaved": {
+    "message": "Preset saved"
+  },
+  "presetDeleted": {
+    "message": "Preset deleted"
+  },
+  "formatFailed": {
+    "message": "Failed to format CSS"
+  },
+  "copyOf": {
+    "message": "$NAME$ (copy)",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "validationPresetName": {
+    "message": "Please enter a preset name"
+  },
+  "validationUrl": {
+    "message": "Please enter a URL"
+  },
+  "sampleHideImages": {
+    "message": "Hide Images"
+  },
+  "sampleFontChange": {
+    "message": "Change Font"
+  }
+}
