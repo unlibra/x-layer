@@ -578,16 +578,16 @@ function App () {
                 : 'border-slate-300 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary'
             }`}
           >
-            <div className='select-none bg-slate-100 py-3 pl-2 pr-1 font-mono text-sm leading-relaxed text-slate-400'>
+            <div className='select-none bg-slate-50 py-3 pl-2 pr-1 font-mono text-sm leading-relaxed text-slate-400'>
               {(editingCss || ' ').split('\n').map((_, i) => (
                 <div key={i} className='text-right'>{i + 1}</div>
               ))}
             </div>
             <textarea
-              className='min-h-[200px] flex-1 resize-none bg-slate-50 p-3 pl-2 font-mono text-sm leading-relaxed text-slate-700 focus:outline-none'
+              className='min-h-[200px] flex-1 resize-none bg-white p-3 pl-2 font-mono text-sm leading-relaxed text-slate-700 focus:outline-none'
               value={editingCss}
               onChange={(e) => setEditingCss(e.target.value)}
-              placeholder='/* CSSを入力してください */'
+              placeholder={'/* CSSを入力してください */\nbody {\n  background: #f0f0f0;\n}'}
               spellCheck={false}
             />
           </div>
