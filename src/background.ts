@@ -8,11 +8,14 @@ chrome.action.onClicked.addListener((tab: chrome.tabs.Tab) => {
   }
 })
 
+// Helper function for i18n
+const t = (messageName: string): string => chrome.i18n.getMessage(messageName) || messageName
+
 // Sample presets to install on first run
-const samplePresets = [
+const createSamplePresets = () => [
   {
     id: 'sample-hide-images',
-    name: '画像を非表示',
+    name: t('sampleHideImages'),
     css: 'img {\n  display: none;\n}\n',
     urlPatterns: ['https://*/*'],
     enabled: false,
@@ -21,7 +24,7 @@ const samplePresets = [
   },
   {
     id: 'sample-font-change',
-    name: 'フォント変更',
+    name: t('sampleFontChange'),
     css: `* {
   font-family: "Noto Sans", sans-serif;
 }
@@ -41,7 +44,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === 'install') {
     const result = await chrome.storage.local.get('presets')
     if (!result.presets || result.presets.length === 0) {
-      await chrome.storage.local.set({ presets: samplePresets })
+      await chrome.storage.local.set({ presets: createSamplePresets() })
       console.log('Sample presets installed')
     }
   }

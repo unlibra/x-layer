@@ -96,7 +96,7 @@ function boostSpecificity (css: string): string {
   // Then, add !important to all declarations (remove existing ones first to avoid duplicates)
   boosted = boosted.replace(
     /([^:;{}]+):\s*([^;{}]+?)\s*(!important)?(\s*[;}])/g,
-    (match, prop, value, _important, ending) => {
+    (_match, prop, value, _important, ending) => {
       return `${prop}: ${value.trim()} !important${ending}`
     }
   )

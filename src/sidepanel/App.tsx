@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react'
 import { z } from 'zod'
 
 import type { Preset } from '../types'
+import { t } from '../utils/i18n'
 import { combineCss, findMatchingPresets } from '../utils/urlMatcher'
 import { useToast } from './Toast'
 
@@ -37,14 +38,6 @@ const isValidUrlPattern = (pattern: string): boolean => {
     return false
   }
 }
-
-const presetSchema = z.object({
-  name: z.string().min(1, 'プリセット名を入力してください'),
-  urls: z.array(z.string()).refine(
-    (urls) => urls.some((url) => url.trim() !== ''),
-    'URLを入力してください'
-  ),
-})
 
 // Validate individual URL patterns, returns array of error indices
 const validateUrlPatterns = (urls: string[]): number[] => {
@@ -83,6 +76,15 @@ function App () {
   const [editingEnabled, setEditingEnabled] = useState(true)
   const [cssErrors, setCssErrors] = useState<CssError[]>([])
   const [touched, setTouched] = useState<{ name?: boolean; urls?: boolean }>({})
+
+  // Form validation with zod (using i18n messages)
+  const presetSchema = z.object({
+    name: z.string().min(1, t('validationPresetName')),
+    urls: z.array(z.string()).refine(
+      (urls) => urls.some((url) => url.trim() !== ''),
+      t('validationUrl')
+    ),
+  })
 
   // Validate CSS with debounce
   useEffect(() => {
@@ -266,7 +268,7 @@ function App () {
       await chrome.storage.local.set({ presets: updatedPresets })
       setPresets(updatedPresets)
       setEditingPresetId(newPreset.id)
-      toast.success('プリセットを作成しました')
+      toast.success(t('presetCreated'))
     } else {
       // Update existing preset
       const updatedPreset: Preset = {
@@ -283,7 +285,7 @@ function App () {
       )
       await chrome.storage.local.set({ presets: updatedPresets })
       setPresets(updatedPresets)
-      toast.success('プリセットを保存しました')
+      toast.success(t('presetSaved'))
     }
   }
 
@@ -332,7 +334,7 @@ function App () {
     if (editingPresetId === 'new') return
 
     setEditingPresetId('new')
-    setEditingName(`${editingName} のコピー`)
+    setEditingName(t('copyOf', editingName))
     setEditingEnabled(false)
     // Keep current editingCss and editingUrls
     setTouched({})
@@ -353,7 +355,7 @@ function App () {
     }
 
     // Show toast with undo
-    toast.withUndo('プリセットを削除しました', async () => {
+    toast.withUndo(t('presetDeleted'), async () => {
       const restoredPresets = [...updatedPresets, deletedPreset]
       await chrome.storage.local.set({ presets: restoredPresets })
       setPresets(restoredPresets)
@@ -395,7 +397,7 @@ function App () {
       setEditingCss(formatted.trimStart())
     } catch (err) {
       console.error('CSS format error:', err)
-      toast.error('CSSの整形に失敗しました')
+      toast.error(t('formatFailed'))
     }
   }
 
@@ -405,13 +407,13 @@ function App () {
       <div className='mb-6'>
         <div className='mb-3 flex items-center justify-between'>
           <h2 className='text-base font-semibold text-slate-800'>
-            このページのプリセット
+            {t('presetsForThisPage')}
           </h2>
           <button
             type='button'
             onClick={createPresetForCurrentPage}
             className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
-            title='このページ用のプリセットを作成'
+            title={t('createPresetForPage')}
           >
             <PlusIcon className='size-5' />
           </button>
@@ -428,7 +430,7 @@ function App () {
                       : 'bg-slate-200 text-slate-600 hover:bg-slate-300 hover:text-slate-700'
                   }`}
                   onClick={() => togglePresetEnabled(preset.id)}
-                  title={preset.enabled ? '無効にする' : '有効にする'}
+                  title={preset.enabled ? t('disable') : t('enable')}
                 >
                   {preset.name}
                 </button>
@@ -437,7 +439,7 @@ function App () {
             )
           : (
             <p className='text-sm text-slate-500'>
-              このページに適用されているプリセットはありません
+              {t('noPresetsApplied')}
             </p>
             )}
       </div>
@@ -449,7 +451,7 @@ function App () {
       <div className='mb-6'>
         <div className='mb-4 flex items-center justify-between'>
           <h2 className='text-base font-semibold text-slate-800'>
-            プリセット編集
+            {t('presetEditor')}
           </h2>
           <div className='flex gap-1'>
             {editingPresetId !== 'new' && (
@@ -457,7 +459,7 @@ function App () {
                 type='button'
                 onClick={duplicatePreset}
                 className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
-                title='複製'
+                title={t('duplicate')}
               >
                 <DocumentDuplicateIcon className='size-5' />
               </button>
@@ -466,7 +468,7 @@ function App () {
               type='button'
               onClick={() => setEditingEnabled(!editingEnabled)}
               className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
-              title={editingEnabled ? '無効にする' : '有効にする'}
+              title={editingEnabled ? t('disable') : t('enable')}
             >
               {editingEnabled
                 ? <EyeIcon className='size-5' />
@@ -478,15 +480,15 @@ function App () {
         {/* Preset Selector Dropdown */}
         <div className='mb-4'>
           <label className='mb-2 block text-sm font-medium text-slate-700'>
-            プリセット選択
+            {t('selectPreset')}
           </label>
           <Listbox value={editingPresetId} onChange={selectPresetForEdit}>
             <div className='relative'>
               <Listbox.Button className='relative w-full cursor-pointer rounded-md border border-slate-300 bg-white py-2.5 pl-3 pr-10 text-left text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'>
                 <span className='block truncate'>
                   {editingPresetId === 'new'
-                    ? '新規プリセット'
-                    : presets.find((p) => p.id === editingPresetId)?.name || '選択してください'}
+                    ? t('newPreset')
+                    : presets.find((p) => p.id === editingPresetId)?.name || t('selectPlaceholder')}
                 </span>
                 <span className='pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2'>
                   <ChevronUpDownIcon className='size-5 text-slate-400' />
@@ -504,7 +506,7 @@ function App () {
                   {({ selected }) => (
                     <>
                       <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
-                        新規プリセット
+                        {t('newPreset')}
                       </span>
                       {selected && (
                         <span className='absolute inset-y-0 right-0 flex items-center pr-3 text-primary'>
@@ -545,7 +547,7 @@ function App () {
         {/* Preset Name */}
         <div className='mb-4'>
           <label className='mb-2 block text-sm font-medium text-slate-700'>
-            プリセット名
+            {t('presetName')}
           </label>
           <input
             className={`w-full rounded-md border p-2.5 text-sm focus:outline-none focus:ring-1 ${
@@ -554,7 +556,7 @@ function App () {
                 : 'border-slate-300 focus:border-primary focus:ring-primary'
             }`}
             type='text'
-            placeholder='例: ダークモード'
+            placeholder={t('presetNamePlaceholder')}
             value={editingName}
             onChange={(e) => setEditingName(e.target.value)}
             onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
@@ -567,7 +569,7 @@ function App () {
         {/* URL Patterns */}
         <div className='mb-4'>
           <label className='mb-2 block text-sm font-medium text-slate-700'>
-            適用するURL
+            {t('urlPatterns')}
           </label>
           <div className='space-y-2'>
             {editingUrls.map((url, index) => {
@@ -582,7 +584,7 @@ function App () {
                           : 'border-slate-300 focus:border-primary focus:ring-primary'
                       }`}
                       type='text'
-                      placeholder='例: https://example.com/*'
+                      placeholder={t('urlPlaceholder')}
                       value={url}
                       onChange={(e) => updateUrlPattern(index, e.target.value)}
                       onBlur={() => setTouched((prev) => ({ ...prev, urls: true }))}
@@ -597,7 +599,7 @@ function App () {
                     </button>
                   </div>
                   {hasError && (
-                    <p className='mt-1 text-xs text-red-600'>無効なURLパターンです</p>
+                    <p className='mt-1 text-xs text-red-600'>{t('invalidUrlPattern')}</p>
                   )}
                 </div>
               )
@@ -612,7 +614,7 @@ function App () {
             className='mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-200 py-2 text-slate-600 transition-colors hover:bg-slate-300 hover:text-slate-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
           >
             <PlusIcon className='size-5' />
-            <span className='text-sm font-medium'>URLパターンを追加</span>
+            <span className='text-sm font-medium'>{t('addUrlPattern')}</span>
           </button>
         </div>
 
@@ -620,13 +622,13 @@ function App () {
         <div className='mb-4'>
           <div className='mb-2 flex items-center justify-between'>
             <label className='text-sm font-medium text-slate-700'>
-              CSS
+              {t('css')}
             </label>
             <button
               type='button'
               onClick={formatCss}
               className='flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
-              title='CSSを整形'
+              title={t('formatCss')}
             >
               <CodeBracketIcon className='size-5' />
             </button>
@@ -648,7 +650,7 @@ function App () {
                 className='min-h-[200px] flex-1 resize-none bg-white p-3 pl-2 font-mono text-sm leading-relaxed text-slate-700 focus:outline-none'
                 value={editingCss}
                 onChange={(e) => setEditingCss(e.target.value)}
-                placeholder={'/* CSSを入力してください */\nbody {\n  background: #f0f0f0;\n}'}
+                placeholder={t('cssPlaceholder')}
                 spellCheck={false}
               />
             </div>
@@ -670,13 +672,13 @@ function App () {
             className='flex-1 rounded-md bg-primary py-2 text-sm font-medium text-white transition-colors hover:brightness-110 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
             onClick={savePreset}
           >
-            {editingPresetId === 'new' ? '作成' : '保存'}
+            {editingPresetId === 'new' ? t('create') : t('save')}
           </button>
           <button
             className='flex-1 rounded-md bg-slate-200 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
             onClick={cancelEdit}
           >
-            キャンセル
+            {t('cancel')}
           </button>
         </div>
 
@@ -686,7 +688,7 @@ function App () {
               className='rounded text-sm text-red-600 hover:text-red-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
               onClick={() => deletePreset(editingPresetId)}
             >
-              このプリセットを削除
+              {t('deletePreset')}
             </button>
           </div>
         )}
