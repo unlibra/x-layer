@@ -1,4 +1,4 @@
-import { Listbox } from '@headlessui/react'
+import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react'
 import {
   CheckIcon,
   ChevronUpDownIcon,
@@ -484,8 +484,8 @@ function App () {
           </label>
           <Listbox value={editingPresetId} onChange={selectPresetForEdit}>
             <div className='relative'>
-              <Listbox.Button className='relative w-full cursor-pointer rounded-md border border-slate-300 bg-white py-2.5 pl-3 pr-10 text-left text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'>
-                <span className='block truncate'>
+              <ListboxButton className='relative w-full cursor-pointer rounded-md border border-slate-300 bg-white py-2.5 pl-3 pr-10 text-left focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary'>
+                <span className='block truncate text-sm'>
                   {editingPresetId === 'new'
                     ? t('newPreset')
                     : presets.find((p) => p.id === editingPresetId)?.name || t('selectPlaceholder')}
@@ -493,19 +493,19 @@ function App () {
                 <span className='pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2'>
                   <ChevronUpDownIcon className='size-5 text-slate-400' />
                 </span>
-              </Listbox.Button>
-              <Listbox.Options className='absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 shadow-lg ring-1 ring-black/5 focus:outline-none'>
-                <Listbox.Option
+              </ListboxButton>
+              <ListboxOptions className='absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 shadow-lg ring-1 ring-black/5 focus:outline-none'>
+                <ListboxOption
                   key='new'
                   value='new'
-                  className={({ active }) =>
+                  className={({ focus }) =>
                   `relative cursor-pointer select-none py-2 pl-3 pr-9 ${
-                    active ? 'bg-primary/10 text-primary' : 'text-slate-900'
+                    focus ? 'bg-primary/10 text-primary' : 'text-slate-900'
                   }`}
                 >
                   {({ selected }) => (
                     <>
-                      <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
+                      <span className={`block truncate text-sm ${selected ? 'font-medium' : 'font-normal'}`}>
                         {t('newPreset')}
                       </span>
                       {selected && (
@@ -515,19 +515,19 @@ function App () {
                       )}
                     </>
                   )}
-                </Listbox.Option>
+                </ListboxOption>
                 {presets.map((preset) => (
-                  <Listbox.Option
+                  <ListboxOption
                     key={preset.id}
                     value={preset.id}
-                    className={({ active }) =>
+                    className={({ focus }) =>
                     `relative cursor-pointer select-none py-2 pl-3 pr-9 ${
-                      active ? 'bg-primary/10 text-primary' : 'text-slate-900'
+                      focus ? 'bg-primary/10 text-primary' : 'text-slate-900'
                     }`}
                   >
                     {({ selected }) => (
                       <>
-                        <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
+                        <span className={`block truncate text-sm ${selected ? 'font-medium' : 'font-normal'}`}>
                           {preset.name}
                         </span>
                         {selected && (
@@ -537,9 +537,9 @@ function App () {
                         )}
                       </>
                     )}
-                  </Listbox.Option>
+                  </ListboxOption>
                 ))}
-              </Listbox.Options>
+              </ListboxOptions>
             </div>
           </Listbox>
         </div>
@@ -683,9 +683,9 @@ function App () {
         </div>
 
         {editingPresetId !== 'new' && (
-          <div className='mt-12 text-center'>
+          <div className='mt-4'>
             <button
-              className='rounded text-sm text-red-600 hover:text-red-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+              className='w-full rounded-md py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
               onClick={() => deletePreset(editingPresetId)}
             >
               {t('deletePreset')}
